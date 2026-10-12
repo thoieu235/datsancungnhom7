@@ -1,0 +1,6 @@
+{
+  "name": "SportArena - Quản lý & Đặt Sân Thể Thao",
+  "description": "Hệ thống đặt sân và quản lý 6 sân bóng đá, 4 sân cầu lông, 4 sân pickleball. Phân quyền khách hàng và chủ sân, thanh toán cọc linh hoạt, check-in QR.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
