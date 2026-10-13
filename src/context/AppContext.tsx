@@ -21,6 +21,8 @@ interface AppContextType {
   checkOutBooking: (id: string) => void;
   collectRemainingPayment: (id: string) => void;
   updateCourt: (id: string, updates: Partial<Court>) => void;
+  addCourt: (court: Omit<Court, 'id'>) => Court;
+  deleteCourt: (id: string) => void;
   updateSettings: (updates: Partial<FacilitySettings>) => void;
   resetAllData: () => void;
   selectedSport: SportType;
@@ -287,6 +289,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourts(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   };
 
+  const addCourt = (courtData: Omit<Court, 'id'>): Court => {
+    const newId = `court-${courtData.sport.slice(0, 2)}-${Date.now()}`;
+    const newCourt: Court = {
+      ...courtData,
+      id: newId
+    };
+    setCourts(prev => [...prev, newCourt]);
+    return newCourt;
+  };
+
+  const deleteCourt = (id: string) => {
+    setCourts(prev => prev.filter(c => c.id !== id));
+  };
+
   const updateSettings = (updates: Partial<FacilitySettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
   };
@@ -323,6 +339,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         checkOutBooking,
         collectRemainingPayment,
         updateCourt,
+        addCourt,
+        deleteCourt,
         updateSettings,
         resetAllData,
         selectedSport,

@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
+import { ManagerSidebar } from './components/layout/ManagerSidebar';
 import { CustomerHomeView } from './components/customer/CustomerHomeView';
 import { AllCourtsScheduleView } from './components/customer/AllCourtsScheduleView';
 import { MyBookingsHistory } from './components/customer/MyBookingsHistory';
@@ -14,12 +15,105 @@ import { ManagerDashboard } from './components/manager/ManagerDashboard';
 import { ManagerBookingsTable } from './components/manager/ManagerBookingsTable';
 import { ManagerCourtsPricing } from './components/manager/ManagerCourtsPricing';
 import { ManagerCustomers } from './components/manager/ManagerCustomers';
-import { Phone, MapPin, Clock, ShieldCheck, Mail } from 'lucide-react';
+import { Phone, MapPin, Clock, ShieldCheck, UserCheck, PanelLeft } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { role, settings } = useApp();
+  const { role, setRole, settings } = useApp();
   const [currentTab, setCurrentTab] = useState<string>('booking');
 
+  // Gemini-style collapsible sidebar state (persisted in localStorage)
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean>(() => {
+    const saved = localStorage.getItem('sportarena_sidebar_expanded');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('sportarena_sidebar_expanded', String(next));
+      return next;
+    });
+  };
+
+  // Sync tab when role changes
+  useEffect(() => {
+    if (role === 'manager' && !currentTab.startsWith('manager_')) {
+      setCurrentTab('manager_dashboard');
+    } else if (role === 'customer' && currentTab.startsWith('manager_')) {
+      setCurrentTab('booking');
+    }
+  }, [role]);
+
+  // MANAGER INTERFACE: DEDICATED COLLAPSIBLE SIDEBAR LAYOUT (GEMINI STYLE)
+  if (role === 'manager') {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex">
+        {/* Pinned Left Sidebar */}
+        <ManagerSidebar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          isExpanded={isSidebarExpanded}
+          onToggleExpand={toggleSidebar}
+        />
+
+        {/* Right Main Content Area (dynamic padding: pl-64 when open, pl-[72px] when closed) */}
+        <div
+          className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+            isSidebarExpanded ? 'pl-64' : 'pl-[72px]'
+          }`}
+        >
+          {/* Top Header for Manager */}
+          <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                title={isSidebarExpanded ? 'Thu gọn thanh bên' : 'Mở rộng thanh bên'}
+              >
+                <PanelLeft className="w-5 h-5 text-slate-600" />
+              </button>
+
+              <span className="font-bold text-sm text-slate-900">
+                {currentTab === 'manager_dashboard' && 'Sơ Đồ Sân'}
+                {currentTab === 'manager_bookings' && 'Danh Sách Đơn'}
+                {currentTab === 'manager_courts' && 'Quản Lý Sân'}
+                {currentTab === 'manager_customers' && 'Khách Hàng'}
+              </span>
+              <span className="text-slate-300">·</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">
+                Cụm 14 Sân Thể Thao SportArena
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRole('customer');
+                  setCurrentTab('booking');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Xem giao diện khách</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Main Manager Viewport */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+            {currentTab === 'manager_dashboard' && <ManagerDashboard />}
+            {currentTab === 'manager_bookings' && <ManagerBookingsTable />}
+            {currentTab === 'manager_courts' && <ManagerCourtsPricing />}
+            {currentTab === 'manager_customers' && <ManagerCustomers />}
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // CUSTOMER INTERFACE: CLEAN TOP NAVIGATION
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
       {/* Top Navigation */}
@@ -27,33 +121,18 @@ const AppContent: React.FC = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Customer Views */}
-        {role === 'customer' && (
-          <>
-            {currentTab === 'booking' && (
-              <CustomerHomeView
-                onGoToHistory={() => setCurrentTab('history')}
-                onGoToPricing={() => setCurrentTab('pricing')}
-              />
-            )}
-            {currentTab === 'schedule' && <AllCourtsScheduleView />}
-            {currentTab === 'history' && <MyBookingsHistory />}
-            {currentTab === 'pricing' && <PricingOverview />}
-          </>
+        {currentTab === 'booking' && (
+          <CustomerHomeView
+            onGoToHistory={() => setCurrentTab('history')}
+            onGoToPricing={() => setCurrentTab('pricing')}
+          />
         )}
-
-        {/* Manager Views */}
-        {role === 'manager' && (
-          <>
-            {currentTab === 'manager_dashboard' && <ManagerDashboard />}
-            {currentTab === 'manager_bookings' && <ManagerBookingsTable />}
-            {currentTab === 'manager_courts' && <ManagerCourtsPricing />}
-            {currentTab === 'manager_customers' && <ManagerCustomers />}
-          </>
-        )}
+        {currentTab === 'schedule' && <AllCourtsScheduleView />}
+        {currentTab === 'history' && <MyBookingsHistory />}
+        {currentTab === 'pricing' && <PricingOverview />}
       </main>
 
-      {/* Footer */}
+      {/* Customer Footer */}
       <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-center sm:text-left">

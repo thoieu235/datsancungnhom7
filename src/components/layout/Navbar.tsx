@@ -38,77 +38,38 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
 
           {/* Zone 2: Navigation Links (Natural, Concise Names) */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-            {role === 'customer' ? (
-              <>
-                <button
-                  onClick={() => setCurrentTab('booking')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'booking' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Đặt sân
-                </button>
-                <button
-                  onClick={() => setCurrentTab('schedule')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'schedule' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Lịch sân
-                </button>
-                <button
-                  onClick={() => setCurrentTab('history')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'history' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Lịch sử đặt
-                </button>
-                <button
-                  onClick={() => setCurrentTab('pricing')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'pricing' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Bảng giá
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setCurrentTab('manager_dashboard')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'manager_dashboard' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Sơ đồ sân
-                </button>
-                <button
-                  onClick={() => setCurrentTab('manager_bookings')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'manager_bookings' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Danh sách đơn
-                </button>
-                <button
-                  onClick={() => setCurrentTab('manager_courts')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'manager_courts' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Cài đặt & giá
-                </button>
-                <button
-                  onClick={() => setCurrentTab('manager_customers')}
-                  className={`whitespace-nowrap transition-colors cursor-pointer ${
-                    currentTab === 'manager_customers' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  Khách hàng
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setCurrentTab('booking')}
+              className={`whitespace-nowrap transition-colors cursor-pointer ${
+                currentTab === 'booking' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              Đặt sân
+            </button>
+            <button
+              onClick={() => setCurrentTab('schedule')}
+              className={`whitespace-nowrap transition-colors cursor-pointer ${
+                currentTab === 'schedule' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              Lịch sân
+            </button>
+            <button
+              onClick={() => setCurrentTab('history')}
+              className={`whitespace-nowrap transition-colors cursor-pointer ${
+                currentTab === 'history' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              Lịch sử đặt
+            </button>
+            <button
+              onClick={() => setCurrentTab('pricing')}
+              className={`whitespace-nowrap transition-colors cursor-pointer ${
+                currentTab === 'pricing' ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              Bảng giá
+            </button>
           </nav>
 
           {/* Zone 3: Role Switcher & Reset */}

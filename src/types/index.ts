@@ -12,6 +12,10 @@ export interface Court {
   amenities: string[];
   surface: string;
   lighting: string;
+  courtTypeLabel?: string;
+  capacity?: string;
+  dimensions?: string;
+  imageUrl?: string;
 }
 
 export type PaymentStatus = 'deposit_pending' | 'deposited' | 'fully_paid' | 'cancelled' | 'refunded';

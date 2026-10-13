@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Court } from '../../types';
 import { formatVND, formatDateVN, calculateCourtPrice, getSportDetails } from '../../utils/formatters';
 import { QrCodeSvg } from '../common/QrCodeSvg';
+import { CourtVisualBadge } from '../common/CourtVisualBadge';
 import { X, CheckCircle, Copy, AlertTriangle, ShieldCheck, ArrowRight, ArrowLeft, Phone, Calendar, Clock, DollarSign, Sparkles } from 'lucide-react';
 
 interface BookingModalProps {
@@ -159,6 +160,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <div className="space-y-5">
               {/* Court Quick Details */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <CourtVisualBadge court={court} height="h-32" className="mb-3" />
                 <div className="flex items-center justify-between">
                   <span className="text-xs uppercase tracking-wider font-bold text-emerald-700">
                     {sportMeta.label}
