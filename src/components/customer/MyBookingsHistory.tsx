@@ -3,11 +3,28 @@ import { useApp } from '../../context/AppContext';
 import { Booking } from '../../types';
 import { formatVND, formatDateVN, getSportDetails } from '../../utils/formatters';
 import { QrCodeSvg } from '../common/QrCodeSvg';
-import { Calendar, Clock, DollarSign, Phone, QrCode, Search, CheckCircle2, AlertCircle, XCircle, ChevronRight, User } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  DollarSign,
+  Phone,
+  QrCode,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  User
+} from 'lucide-react';
 
 export const MyBookingsHistory: React.FC = () => {
   const { bookings, customerPhone, setCustomerPhone, customerName, setCustomerName, settings } = useApp();
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(4);
   const [selectedPassBooking, setSelectedPassBooking] = useState<Booking | null>(null);
   const [phoneInput, setPhoneInput] = useState(customerPhone);
 
@@ -15,6 +32,7 @@ export const MyBookingsHistory: React.FC = () => {
     e.preventDefault();
     if (phoneInput.trim()) {
       setCustomerPhone(phoneInput.trim());
+      setCurrentPage(1);
     }
   };
 
@@ -29,6 +47,18 @@ export const MyBookingsHistory: React.FC = () => {
     if (filterStatus === 'cancelled') return b.paymentStatus === 'cancelled' || b.checkInStatus === 'cancelled';
     return true;
   });
+
+  // Pagination calculation
+  const totalItems = filteredBookings.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + pageSize);
+
+  const handleFilterChange = (status: string) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -91,7 +121,7 @@ export const MyBookingsHistory: React.FC = () => {
       {/* Filter Tabs */}
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl max-w-fit overflow-x-auto">
         <button
-          onClick={() => setFilterStatus('all')}
+          onClick={() => handleFilterChange('all')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             filterStatus === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
@@ -99,7 +129,7 @@ export const MyBookingsHistory: React.FC = () => {
           Tất cả ({myBookings.length})
         </button>
         <button
-          onClick={() => setFilterStatus('upcoming')}
+          onClick={() => handleFilterChange('upcoming')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             filterStatus === 'upcoming' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
@@ -107,7 +137,7 @@ export const MyBookingsHistory: React.FC = () => {
           Sắp diễn ra
         </button>
         <button
-          onClick={() => setFilterStatus('in_use')}
+          onClick={() => handleFilterChange('in_use')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             filterStatus === 'in_use' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
@@ -115,7 +145,7 @@ export const MyBookingsHistory: React.FC = () => {
           Đang trên sân
         </button>
         <button
-          onClick={() => setFilterStatus('completed')}
+          onClick={() => handleFilterChange('completed')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             filterStatus === 'completed' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
@@ -123,7 +153,7 @@ export const MyBookingsHistory: React.FC = () => {
           Đã hoàn tất
         </button>
         <button
-          onClick={() => setFilterStatus('cancelled')}
+          onClick={() => handleFilterChange('cancelled')}
           className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             filterStatus === 'cancelled' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
@@ -142,8 +172,9 @@ export const MyBookingsHistory: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredBookings.map(b => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paginatedBookings.map(b => {
             const sportMeta = getSportDetails(b.sport);
             return (
               <div
@@ -211,12 +242,22 @@ export const MyBookingsHistory: React.FC = () => {
                     </div>
                     <div className="flex justify-between text-emerald-700 font-semibold">
                       <span>Đã đặt cọc ({b.depositRate}%):</span>
-                      <span className="font-mono">{formatVND(b.depositAmount)}</span>
+                      <div className="text-right">
+                        <span className="font-mono">{formatVND(b.depositAmount)}</span>
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({b.depositAmount === 0 ? 'Miễn cọc' : b.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})
+                        </span>
+                      </div>
                     </div>
                     {b.checkInStatus !== 'checked_out' && b.checkInStatus !== 'cancelled' && (
                       <div className="flex justify-between text-amber-700 font-semibold border-t border-slate-200/60 pt-1">
                         <span>Số tiền còn lại thanh toán tại quầy:</span>
-                        <span className="font-mono font-bold">{formatVND(b.remainingAmount)}</span>
+                        <div className="text-right">
+                          <span className="font-mono font-bold">{formatVND(b.remainingAmount)}</span>
+                          <span className="text-[10px] text-slate-400 block font-normal">
+                            (Tiền mặt hoặc Chuyển khoản VietQR)
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -245,6 +286,107 @@ export const MyBookingsHistory: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Pagination Bar */}
+        {filteredBookings.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+            {/* Range counter & Page size */}
+            <div className="flex items-center gap-3">
+              <span>
+                Hiển thị{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {(validCurrentPage - 1) * pageSize + 1}
+                </strong>
+                -
+                <strong className="font-mono text-slate-900 font-bold">
+                  {Math.min(validCurrentPage * pageSize, totalItems)}
+                </strong>{' '}
+                trong tổng số{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {totalItems}
+                </strong>{' '}
+                lượt đặt
+              </span>
+
+              <div className="flex items-center gap-1 text-slate-500">
+                <span>·</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value={4}>4 đơn / trang</option>
+                  <option value={8}>8 đơn / trang</option>
+                  <option value={12}>12 đơn / trang</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Pagination Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang đầu"
+              >
+                <ChevronsLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`min-w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                      validCurrentPage === pageNum
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang sau"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       )}
 
       {/* QR Pass Modal */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Court, SportType, Booking } from '../../types';
 import { formatVND, getSportDetails } from '../../utils/formatters';
@@ -19,7 +19,12 @@ import {
   Settings,
   ShieldAlert,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export const ManagerCourtsPricing: React.FC = () => {
@@ -29,6 +34,10 @@ export const ManagerCourtsPricing: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   // Modal State for Add / Edit Court
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -42,6 +51,22 @@ export const ManagerCourtsPricing: React.FC = () => {
 
   // Change Court Modal State (when rescheduling from alert)
   const [bookingToReschedule, setBookingToReschedule] = useState<Booking | null>(null);
+
+  // Toast Notification State (Success / Error)
+  const [toastNotification, setToastNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Auto-dismiss toast after 4 seconds
+  useEffect(() => {
+    if (toastNotification) {
+      const timer = setTimeout(() => {
+        setToastNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastNotification]);
 
   // Collapsible facility settings
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
@@ -62,6 +87,13 @@ export const ManagerCourtsPricing: React.FC = () => {
     return true;
   });
 
+  // Pagination calculation
+  const totalItems = filteredCourts.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedCourts = filteredCourts.slice(startIndex, startIndex + pageSize);
+
   const activeCount = courts.filter(c => c.status === 'active').length;
   const maintenanceCount = courts.filter(c => c.status === 'maintenance').length;
 
@@ -79,6 +111,10 @@ export const ManagerCourtsPricing: React.FC = () => {
       );
 
       updateCourt(court.id, { status: 'maintenance' });
+      setToastNotification({
+        type: 'success',
+        message: `Đã chuyển sân "${court.name}" sang trạng thái Đang Bảo Trì!`
+      });
 
       if (affected.length > 0) {
         setMaintenanceAlertData({
@@ -88,6 +124,10 @@ export const ManagerCourtsPricing: React.FC = () => {
       }
     } else {
       updateCourt(court.id, { status: 'active' });
+      setToastNotification({
+        type: 'success',
+        message: `Đã kích hoạt sân "${court.name}" hoạt động trở lại!`
+      });
     }
   };
 
@@ -104,11 +144,49 @@ export const ManagerCourtsPricing: React.FC = () => {
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(settingsFormData);
-    alert('Đã cập nhật cấu hình hoạt động & tài khoản ngân hàng thành công!');
+    setToastNotification({
+      type: 'success',
+      message: 'Đã cập nhật cấu hình hoạt động & tài khoản nhận cọc VietQR thành công!'
+    });
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification Banner */}
+      {toastNotification && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between border shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
+            toastNotification.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-red-50 border-red-200 text-red-900'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {toastNotification.type === 'success' ? (
+              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            )}
+            <div>
+              <h4 className="font-bold text-xs">
+                {toastNotification.type === 'success' ? 'Thành Công!' : 'Thông Báo Lỗi!'}
+              </h4>
+              <p className="text-xs mt-0.5 font-medium">{toastNotification.message}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header with Title and Add Court Button */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -241,7 +319,10 @@ export const ManagerCourtsPricing: React.FC = () => {
               type="text"
               placeholder="Tìm kiếm theo tên sân, bề mặt..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
             />
           </div>
@@ -250,7 +331,10 @@ export const ManagerCourtsPricing: React.FC = () => {
           <div>
             <select
               value={sportFilter}
-              onChange={(e) => setSportFilter(e.target.value)}
+              onChange={(e) => {
+                setSportFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
             >
               <option value="all">Tất cả loại sân (Bóng đá, Cầu lông, Pickleball)</option>
@@ -264,7 +348,10 @@ export const ManagerCourtsPricing: React.FC = () => {
           <div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
             >
               <option value="all">Tất cả trạng thái</option>
@@ -315,7 +402,7 @@ export const ManagerCourtsPricing: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredCourts.map(court => {
+                paginatedCourts.map(court => {
                   const sportMeta = getSportDetails(court.sport);
                   return (
                     <tr key={court.id} className="hover:bg-slate-50/70 transition-colors">
@@ -397,6 +484,106 @@ export const ManagerCourtsPricing: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredCourts.length > 0 && (
+          <div className="p-4 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+            {/* Range counter & Page size */}
+            <div className="flex items-center gap-3">
+              <span>
+                Hiển thị{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {(validCurrentPage - 1) * pageSize + 1}
+                </strong>
+                -
+                <strong className="font-mono text-slate-900 font-bold">
+                  {Math.min(validCurrentPage * pageSize, totalItems)}
+                </strong>{' '}
+                trong tổng số{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {totalItems}
+                </strong>{' '}
+                sân
+              </span>
+
+              <div className="flex items-center gap-1 text-slate-500">
+                <span>·</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value={5}>5 sân / trang</option>
+                  <option value={10}>10 sân / trang</option>
+                  <option value={15}>15 sân / trang</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Pagination Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang đầu"
+              >
+                <ChevronsLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`min-w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                      validCurrentPage === pageNum
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang sau"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add / Edit Court Modal */}
@@ -407,7 +594,19 @@ export const ManagerCourtsPricing: React.FC = () => {
           setIsFormModalOpen(false);
           setSelectedCourtForEdit(null);
         }}
-        onSuccess={(savedCourt, affected) => {
+        onSuccess={(savedCourt, affected, isNew) => {
+          if (isNew) {
+            setToastNotification({
+              type: 'success',
+              message: `Thêm sân mới "${savedCourt.name}" thành công!`
+            });
+          } else {
+            setToastNotification({
+              type: 'success',
+              message: `Cập nhật thông tin sân "${savedCourt.name}" thành công!`
+            });
+          }
+
           if (affected && affected.length > 0) {
             setMaintenanceAlertData({
               court: savedCourt,

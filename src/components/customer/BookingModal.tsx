@@ -4,7 +4,7 @@ import { Court } from '../../types';
 import { formatVND, formatDateVN, calculateCourtPrice, getSportDetails } from '../../utils/formatters';
 import { QrCodeSvg } from '../common/QrCodeSvg';
 import { CourtVisualBadge } from '../common/CourtVisualBadge';
-import { X, CheckCircle, Copy, AlertTriangle, ShieldCheck, ArrowRight, ArrowLeft, Phone, Calendar, Clock, DollarSign, Sparkles } from 'lucide-react';
+import { X, CheckCircle, Copy, AlertTriangle, ShieldCheck, ArrowRight, ArrowLeft, Phone, Calendar, Clock, DollarSign, Sparkles, Banknote, CreditCard } from 'lucide-react';
 
 interface BookingModalProps {
   court: Court;
@@ -43,6 +43,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Deposit control (default 30%, manager can override freely!)
   const [depositRate, setDepositRate] = useState<number>(30);
   const [customDepositAmount, setCustomDepositAmount] = useState<number | null>(null);
+
+  // User Request: Phương thức thanh toán tiền cọc: Tiền mặt hoặc Chuyển khoản
+  const [depositPaymentMethod, setDepositPaymentMethod] = useState<'cash' | 'bank_transfer'>('bank_transfer');
 
   // Completed booking state
   const [createdBookingId, setCreatedBookingId] = useState('');
@@ -86,6 +89,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const handleConfirmPayment = () => {
     setIsProcessingPayment(true);
     setTimeout(() => {
+      const finalPaymentMethod = effectiveDepositAmount === 0 ? 'cash' : (depositPaymentMethod === 'cash' ? 'cash' : 'vietqr');
       const newBooking = createBooking({
         courtId: court.id,
         courtName: court.name,
@@ -103,7 +107,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         remainingAmount: effectiveRemainingAmount,
         paymentStatus: effectiveDepositAmount >= totalAmount ? 'fully_paid' : 'deposited',
         checkInStatus: 'not_checked_in',
-        paymentMethod: 'vietqr',
+        paymentMethod: finalPaymentMethod,
         note,
         createdByRole: role
       });
@@ -112,7 +116,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       setCreatedQrPass(newBooking.qrPassCode);
       setIsProcessingPayment(false);
       setStep(4);
-    }, 700);
+    }, 600);
   };
 
   return (
@@ -149,7 +153,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             <div className="w-8 h-px bg-slate-300"></div>
             <div className={`flex items-center gap-1.5 font-semibold ${step >= 3 ? 'text-emerald-700' : 'text-slate-400'}`}>
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 3 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>3</span>
-              <span>Thanh Toán VietQR</span>
+              <span>Thanh Toán Cọc</span>
             </div>
           </div>
         )}
@@ -399,94 +403,193 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   type="submit"
                   className="flex-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Xác nhận thông tin & Lấy VietQR</span>
+                  <span>Xác nhận thông tin & Thanh toán cọc</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </form>
           )}
 
-          {/* STEP 3: DYNAMIC VIETQR PAYMENT */}
+          {/* STEP 3: DEPOSIT PAYMENT (TIỀN MẶT HOẶC CHUYỂN KHOẢN) */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="text-center">
-                <span className="text-xs uppercase font-bold tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  Quét Mã VietQR Chuyển Khoản
-                </span>
-                <p className="text-xs text-slate-500 mt-1">
-                  Mở ứng dụng ngân hàng hoặc MoMo để quét mã thanh toán tiền cọc tức thì
-                </p>
-              </div>
-
-              {/* VietQR Display Box */}
-              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="shrink-0 flex flex-col items-center">
-                  <QrCodeSvg
-                    value={`vietqr://transfer?bank=${settings.bankName}&acc=${settings.bankAccount}&amount=${effectiveDepositAmount}&desc=DATSAN_${custPhone}`}
-                    size={170}
-                    label="VietQR 24/7"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1">Quét mã tự động điền số tiền</span>
-                </div>
-
-                <div className="flex-1 space-y-2 text-xs w-full">
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                    <div className="text-slate-500 text-[11px]">Ngân hàng thụ hưởng:</div>
-                    <div className="font-bold text-slate-900">{settings.bankName}</div>
+              {effectiveDepositAmount === 0 ? (
+                /* 0% Deposit: Free direct booking */
+                <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-3">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle className="w-6 h-6" />
                   </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <div className="text-slate-500 text-[11px]">Số tài khoản:</div>
-                      <div className="font-mono font-bold text-slate-900 text-sm">{settings.bankAccount}</div>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(settings.bankAccount, 'acc')}
-                      className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-emerald-700 cursor-pointer"
-                      title="Sao chép số tài khoản"
-                    >
-                      {copiedField === 'acc' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                    <div className="text-slate-500 text-[11px]">Chủ tài khoản:</div>
-                    <div className="font-semibold text-slate-900">{settings.bankAccountName}</div>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <div className="text-slate-500 text-[11px]">Số tiền cọc cần chuyển:</div>
-                      <div className="font-mono font-extrabold text-emerald-700 text-base">
-                        {formatVND(effectiveDepositAmount)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(effectiveDepositAmount.toString(), 'amount')}
-                      className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-emerald-700 cursor-pointer"
-                      title="Sao chép số tiền"
-                    >
-                      {copiedField === 'amount' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 flex items-center justify-between">
-                    <div>
-                      <div className="text-emerald-900 text-[11px] font-medium">Nội dung chuyển khoản:</div>
-                      <div className="font-mono font-bold text-emerald-950 text-xs">
-                        DATSAN {custPhone}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(`DATSAN ${custPhone}`, 'desc')}
-                      className="p-1.5 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer"
-                      title="Sao chép nội dung"
-                    >
-                      {copiedField === 'desc' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    </button>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-base">
+                      Đơn Đặt Sân Được Miễn Cọc (0 ₫)
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
+                      Quản lý đã thiết lập mức cọc 0% cho ca đặt này. Khách hàng <strong>{custName}</strong> sẽ thanh toán toàn bộ chi phí khi đến nhận sân.
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Normal Deposit: Cho phép chọn Tiền mặt hoặc Chuyển khoản */
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <span className="text-xs uppercase font-bold tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded">
+                      Chọn Phương Thức Thanh Toán Cọc ({formatVND(effectiveDepositAmount)})
+                    </span>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Hỗ trợ chuyển khoản ngân hàng qua VietQR hoặc đóng tiền mặt tại quầy
+                    </p>
+                  </div>
+
+                  {/* Payment Method Selector Tabs */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setDepositPaymentMethod('bank_transfer')}
+                      className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                        depositPaymentMethod === 'bank_transfer'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/30'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        depositPaymentMethod === 'bank_transfer' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs">Chuyển Khoản</div>
+                        <div className="text-[11px] text-slate-500">Quét mã VietQR 24/7</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDepositPaymentMethod('cash')}
+                      className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                        depositPaymentMethod === 'cash'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/30'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        depositPaymentMethod === 'cash' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <Banknote className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs">Tiền Mặt</div>
+                        <div className="text-[11px] text-slate-500">Thanh toán tại quầy lễ tân</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Option 1: Chuyển khoản VietQR */}
+                  {depositPaymentMethod === 'bank_transfer' ? (
+                    <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="shrink-0 flex flex-col items-center">
+                        <QrCodeSvg
+                          value={`vietqr://transfer?bank=${settings.bankName}&acc=${settings.bankAccount}&amount=${effectiveDepositAmount}&desc=DATSAN_${custPhone}`}
+                          size={160}
+                          label="VietQR 24/7"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1">Quét mã tự động điền số tiền</span>
+                      </div>
+
+                      <div className="flex-1 space-y-2 text-xs w-full">
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                          <div className="text-slate-500 text-[11px]">Ngân hàng thụ hưởng:</div>
+                          <div className="font-bold text-slate-900">{settings.bankName}</div>
+                        </div>
+
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                          <div>
+                            <div className="text-slate-500 text-[11px]">Số tài khoản:</div>
+                            <div className="font-mono font-bold text-slate-900 text-sm">{settings.bankAccount}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(settings.bankAccount, 'acc')}
+                            className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-emerald-700 cursor-pointer"
+                            title="Sao chép số tài khoản"
+                          >
+                            {copiedField === 'acc' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                          <div className="text-slate-500 text-[11px]">Chủ tài khoản:</div>
+                          <div className="font-semibold text-slate-900">{settings.bankAccountName}</div>
+                        </div>
+
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                          <div>
+                            <div className="text-slate-500 text-[11px]">Số tiền cọc cần chuyển:</div>
+                            <div className="font-mono font-extrabold text-emerald-700 text-base">
+                              {formatVND(effectiveDepositAmount)}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(effectiveDepositAmount.toString(), 'amount')}
+                            className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-emerald-700 cursor-pointer"
+                            title="Sao chép số tiền"
+                          >
+                            {copiedField === 'amount' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+
+                        <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200 flex items-center justify-between">
+                          <div>
+                            <div className="text-emerald-900 text-[11px] font-medium">Nội dung chuyển khoản:</div>
+                            <div className="font-mono font-bold text-emerald-950 text-xs">
+                              DATSAN {custPhone}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(`DATSAN ${custPhone}`, 'desc')}
+                            className="p-1.5 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer"
+                            title="Sao chép nội dung"
+                          >
+                            {copiedField === 'desc' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Option 2: Tiền Mặt tại quầy */
+                    <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3 text-xs">
+                      <div className="flex items-center gap-2.5 text-amber-950 font-bold text-sm">
+                        <Banknote className="w-5 h-5 text-amber-700 shrink-0" />
+                        <span>Thanh toán tiền mặt trực tiếp tại quầy thu ngân</span>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>Số tiền cọc cần nộp bằng tiền mặt:</span>
+                          <span className="font-mono font-extrabold text-amber-900 text-base">
+                            {formatVND(effectiveDepositAmount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-600 border-t border-slate-100 pt-1.5">
+                          <span>Khách hàng nộp cọc:</span>
+                          <span className="font-bold text-slate-900">{custName} ({custPhone})</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>Số tiền còn lại khi nhận sân:</span>
+                          <span className="font-mono font-bold text-slate-700">{formatVND(effectiveRemainingAmount)}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-amber-900">
+                        {role === 'manager'
+                          ? '✓ Bạn đang tạo đơn với tư cách Chủ Sân. Xác nhận khách hàng đã nộp tiền mặt trực tiếp tại quầy để hệ thống cấp thẻ SportPass ngay lập tức.'
+                          : '✓ Vui lòng thanh toán tiền mặt trực tiếp tại quầy lễ tân của sân thể thao. Hệ thống sẽ tạo đơn giữ chỗ và cấp mã vé SportPass ngay cho bạn.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="flex gap-3 pt-2">
@@ -506,11 +609,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   className="flex-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isProcessingPayment ? (
-                    <span>Đang kiểm tra giao dịch...</span>
+                    <span>Đang hoàn tất đơn đặt...</span>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
-                      <span>Xác Nhận Đã Chuyển Cọc</span>
+                      <span>
+                        {effectiveDepositAmount === 0
+                          ? 'Xác Nhận Đặt Chỗ Ngay'
+                          : depositPaymentMethod === 'cash'
+                          ? `Xác Nhận Đã Thu/Trả Tiền Mặt (${formatVND(effectiveDepositAmount)})`
+                          : `Xác Nhận Đã Chuyển Khoản (${formatVND(effectiveDepositAmount)})`}
+                      </span>
                     </>
                   )}
                 </button>
@@ -563,7 +672,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="flex items-center justify-between pt-3">
                   <div>
-                    <div className="text-[11px] text-slate-400">Đã cọc: <strong className="text-emerald-400 font-mono">{formatVND(effectiveDepositAmount)}</strong></div>
+                    <div className="text-[11px] text-slate-400">
+                      Đã cọc: <strong className="text-emerald-400 font-mono">{formatVND(effectiveDepositAmount)}</strong>
+                      <span className="text-[10px] text-slate-300 ml-1">
+                        ({effectiveDepositAmount === 0 ? 'Miễn cọc' : depositPaymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})
+                      </span>
+                    </div>
                     <div className="text-[11px] text-slate-400">Còn lại tại quầy: <strong className="text-amber-300 font-mono">{formatVND(effectiveRemainingAmount)}</strong></div>
                   </div>
                   <div className="bg-white p-1 rounded-lg">

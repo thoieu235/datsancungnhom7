@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Court, Booking, CustomerProfile, FacilitySettings, SportType } from '../types';
+import { Court, Booking, CustomerProfile, FacilitySettings, SportType, PaymentMethod } from '../types';
 import { INITIAL_COURTS, INITIAL_SETTINGS, INITIAL_CUSTOMERS, getInitialBookings } from '../data/mockData';
 
 interface AppContextType {
@@ -17,12 +17,13 @@ interface AppContextType {
   updateBooking: (id: string, updates: Partial<Booking>) => void;
   changeCourtBooking: (id: string, newCourtId: string, newDate: string, newStartTime: string, newEndTime: string) => boolean;
   cancelBooking: (id: string, note?: string) => void;
-  checkInBooking: (id: string, collectRemainingPayment?: boolean) => void;
+  checkInBooking: (id: string, collectRemainingPayment?: boolean, remainingMethod?: PaymentMethod) => void;
   checkOutBooking: (id: string) => void;
-  collectRemainingPayment: (id: string) => void;
+  collectRemainingPayment: (id: string, method?: PaymentMethod) => void;
   updateCourt: (id: string, updates: Partial<Court>) => void;
   addCourt: (court: Omit<Court, 'id'>) => Court;
   deleteCourt: (id: string) => void;
+  updateCustomer: (phoneOrId: string, updates: Partial<CustomerProfile>) => void;
   updateSettings: (updates: Partial<FacilitySettings>) => void;
   resetAllData: () => void;
   selectedSport: SportType;
@@ -246,7 +247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const checkInBooking = (id: string, collectRemainingPayment: boolean = true) => {
+  const checkInBooking = (id: string, collectRemaining: boolean = true, remainingMethod: PaymentMethod = 'cash') => {
     const now = new Date().toISOString();
     setBookings(prev => prev.map(b => {
       if (b.id !== id) return b;
@@ -254,9 +255,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...b,
         checkInStatus: 'checked_in',
         checkedInAt: now,
-        ...(collectRemainingPayment ? {
+        ...(collectRemaining ? {
           paymentStatus: 'fully_paid',
-          remainingAmount: 0
+          remainingAmount: 0,
+          remainingPaymentMethod: remainingMethod
         } : {})
       };
     }));
@@ -274,13 +276,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const collectRemainingPayment = (id: string) => {
+  const collectRemainingPayment = (id: string, method: PaymentMethod = 'cash') => {
     setBookings(prev => prev.map(b => {
       if (b.id !== id) return b;
       return {
         ...b,
         paymentStatus: 'fully_paid',
-        remainingAmount: 0
+        remainingAmount: 0,
+        remainingPaymentMethod: method
       };
     }));
   };
@@ -301,6 +304,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteCourt = (id: string) => {
     setCourts(prev => prev.filter(c => c.id !== id));
+  };
+
+  const updateCustomer = (phoneOrId: string, updates: Partial<CustomerProfile>) => {
+    setCustomers(prev => prev.map(c => (c.id === phoneOrId || c.phone === phoneOrId) ? { ...c, ...updates } : c));
   };
 
   const updateSettings = (updates: Partial<FacilitySettings>) => {
@@ -341,6 +348,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCourt,
         addCourt,
         deleteCourt,
+        updateCustomer,
         updateSettings,
         resetAllData,
         selectedSport,

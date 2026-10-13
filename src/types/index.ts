@@ -41,6 +41,7 @@ export interface Booking {
   paymentStatus: PaymentStatus;
   checkInStatus: CheckInStatus;
   paymentMethod: PaymentMethod;
+  remainingPaymentMethod?: PaymentMethod;
   qrPassCode: string;
   note?: string;
   createdByRole: 'customer' | 'manager';
@@ -56,7 +57,7 @@ export interface CustomerProfile {
   email?: string;
   totalBookings: number;
   totalSpent: number;
-  isVip: boolean;
+  isVip?: boolean;
   notes?: string;
   createdAt: string;
 }

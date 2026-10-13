@@ -78,7 +78,7 @@ const AppContent: React.FC = () => {
                 {currentTab === 'manager_dashboard' && 'Sơ Đồ Sân'}
                 {currentTab === 'manager_bookings' && 'Danh Sách Đơn'}
                 {currentTab === 'manager_courts' && 'Quản Lý Sân'}
-                {currentTab === 'manager_customers' && 'Khách Hàng'}
+                {currentTab === 'manager_customers' && 'Quản Lý Khách Hàng'}
               </span>
               <span className="text-slate-300">·</span>
               <span className="text-xs text-slate-500 hidden sm:inline">

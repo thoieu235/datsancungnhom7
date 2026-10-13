@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Booking } from '../../types';
 import { formatVND, formatDateVN, getSportDetails } from '../../utils/formatters';
 import { ChangeCourtModal } from './ChangeCourtModal';
 import { CheckInModal } from './CheckInModal';
+import { CollectPaymentModal } from './CollectPaymentModal';
 import {
   Search,
   Filter,
@@ -14,7 +15,14 @@ import {
   Calendar,
   Phone,
   LogOut,
-  QrCode
+  QrCode,
+  Banknote,
+  CreditCard,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export const ManagerBookingsTable: React.FC = () => {
@@ -28,8 +36,19 @@ export const ManagerBookingsTable: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [selectedBookingForChange, setSelectedBookingForChange] = useState<Booking | null>(null);
   const [selectedBookingForCheckIn, setSelectedBookingForCheckIn] = useState<Booking | null>(null);
+  const [selectedBookingForCollect, setSelectedBookingForCollect] = useState<Booking | null>(null);
+  const [toastNotification, setToastNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastNotification) {
+      const timer = setTimeout(() => setToastNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastNotification]);
 
   const filteredBookings = bookings.filter(b => {
     // Search
@@ -53,8 +72,36 @@ export const ManagerBookingsTable: React.FC = () => {
     return true;
   });
 
+  // Pagination calculation
+  const totalItems = filteredBookings.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6">
+      {/* Toast Notification Banner */}
+      {toastNotification && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-xs">Thanh toán hoàn tất!</h4>
+              <p className="text-xs font-medium mt-0.5">{toastNotification}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="p-1.5 hover:bg-black/5 rounded-lg text-slate-500 hover:text-slate-800 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header and Filter Controls */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -82,7 +129,10 @@ export const ManagerBookingsTable: React.FC = () => {
               type="text"
               placeholder="Tìm theo Mã đơn, Tên khách, SĐT, Tên sân..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
             />
           </div>
@@ -90,7 +140,10 @@ export const ManagerBookingsTable: React.FC = () => {
           <div>
             <select
               value={sportFilter}
-              onChange={(e) => setSportFilter(e.target.value)}
+              onChange={(e) => {
+                setSportFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
             >
               <option value="all">Tất cả môn (Bóng đá, Cầu lông, Pickleball)</option>
@@ -103,7 +156,10 @@ export const ManagerBookingsTable: React.FC = () => {
           <div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
             >
               <option value="all">Tất cả trạng thái</option>
@@ -140,7 +196,7 @@ export const ManagerBookingsTable: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredBookings.map(b => {
+                paginatedBookings.map(b => {
                   const sportMeta = getSportDetails(b.sport);
                   return (
                     <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
@@ -176,27 +232,45 @@ export const ManagerBookingsTable: React.FC = () => {
                       {/* Deposit */}
                       <td className="p-3.5 text-right font-mono text-emerald-700 font-bold">
                         <div>{formatVND(b.depositAmount)}</div>
-                        <span className="text-[10px] text-slate-400 font-normal">({b.depositRate}%)</span>
+                        <div className="flex items-center justify-end gap-1 mt-0.5">
+                          <span className="text-[10px] text-slate-400 font-normal">({b.depositRate}%)</span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+                            b.paymentMethod === 'cash'
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : 'bg-blue-50 text-blue-800 border border-blue-200'
+                          }`}>
+                            {b.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Remaining */}
                       <td className="p-3.5 text-right font-mono">
                         {b.remainingAmount > 0 && b.paymentStatus !== 'cancelled' ? (
                           <div className="font-bold text-amber-700">
-                            {formatVND(b.remainingAmount)}
+                            <div>{formatVND(b.remainingAmount)}</div>
                             <button
-                              onClick={() => {
-                                if (confirm(`Xác nhận đã thu đủ ${formatVND(b.remainingAmount)} cho đơn ${b.id}?`)) {
-                                  collectRemainingPayment(b.id);
-                                }
-                              }}
-                              className="block text-[10px] text-emerald-700 underline font-normal mt-0.5 ml-auto cursor-pointer"
+                              onClick={() => setSelectedBookingForCollect(b)}
+                              className="inline-flex items-center gap-1 text-[10px] text-white bg-emerald-600 hover:bg-emerald-700 font-semibold px-2 py-0.5 rounded shadow-2xs mt-1 cursor-pointer transition-colors"
+                              title="Thu nốt tiền và chọn Tiền mặt hoặc Chuyển khoản"
                             >
-                              Thu tiền ngay
+                              <DollarSign className="w-3 h-3" />
+                              <span>Thu tiền ngay</span>
                             </button>
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">Đã đủ (0 ₫)</span>
+                          <div>
+                            <span className="text-slate-400 text-[11px] block">Đã đủ (0 ₫)</span>
+                            {b.remainingPaymentMethod && (
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold inline-block mt-0.5 ${
+                                b.remainingPaymentMethod === 'cash'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
+                              }`}>
+                                Thu {b.remainingPaymentMethod === 'cash' ? 'tiền mặt' : 'chuyển khoản'}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -285,6 +359,106 @@ export const ManagerBookingsTable: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredBookings.length > 0 && (
+          <div className="p-4 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+            {/* Range counter & Page size */}
+            <div className="flex items-center gap-3">
+              <span>
+                Hiển thị{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {(validCurrentPage - 1) * pageSize + 1}
+                </strong>
+                -
+                <strong className="font-mono text-slate-900 font-bold">
+                  {Math.min(validCurrentPage * pageSize, totalItems)}
+                </strong>{' '}
+                trong tổng số{' '}
+                <strong className="font-mono text-slate-900 font-bold">
+                  {totalItems}
+                </strong>{' '}
+                đơn đặt sân
+              </span>
+
+              <div className="flex items-center gap-1 text-slate-500">
+                <span>·</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value={5}>5 đơn / trang</option>
+                  <option value={10}>10 đơn / trang</option>
+                  <option value={20}>20 đơn / trang</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Pagination Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang đầu"
+              >
+                <ChevronsLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validCurrentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`min-w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                      validCurrentPage === pageNum
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang sau"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={validCurrentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Change Court Modal */}
@@ -302,6 +476,19 @@ export const ManagerBookingsTable: React.FC = () => {
           booking={selectedBookingForCheckIn}
           onClose={() => setSelectedBookingForCheckIn(null)}
           onSuccess={() => setSelectedBookingForCheckIn(null)}
+        />
+      )}
+
+      {/* Collect Remaining Payment Modal (Cash or Transfer) */}
+      {selectedBookingForCollect && (
+        <CollectPaymentModal
+          booking={selectedBookingForCollect}
+          isOpen={!!selectedBookingForCollect}
+          onClose={() => setSelectedBookingForCollect(null)}
+          onSuccess={(method, amount) => {
+            setToastNotification(`Đã thu đủ ${formatVND(amount)} (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}) cho đơn ${selectedBookingForCollect.id}!`);
+            setSelectedBookingForCollect(null);
+          }}
         />
       )}
     </div>

@@ -9,7 +9,7 @@ interface CourtFormModalProps {
   court?: Court | null; // null for Create, Court for Edit
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (court: Court, affectedBookings?: Booking[]) => void;
+  onSuccess: (court: Court, affectedBookings?: Booking[], isNew?: boolean) => void;
 }
 
 const COMMON_AMENITIES_BY_SPORT: Record<SportType, string[]> = {
@@ -130,7 +130,7 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
     // 1. Validation: Name required
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setErrorMessage('Vui lòng nhập tên sân!');
+      setErrorMessage('Lỗi: Vui lòng nhập tên sân không được để trống!');
       return;
     }
 
@@ -141,13 +141,18 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
     );
 
     if (duplicate) {
-      setErrorMessage(`Tên sân "${trimmedName}" đã tồn tại trong hệ thống! Vui lòng đặt tên khác để tránh nhầm lẫn.`);
+      setErrorMessage(`Lỗi: Tên sân "${trimmedName}" đã tồn tại trong hệ thống! Vui lòng đặt tên khác để tránh nhầm lẫn.`);
       return;
     }
 
     // 3. Price validation
-    if (pricePerHour < 0 || peakPricePerHour < 0) {
-      setErrorMessage('Giá thuê sân không được là số âm!');
+    if (pricePerHour < 0 || peakPricePerHour < 0 || isNaN(pricePerHour) || isNaN(peakPricePerHour)) {
+      setErrorMessage('Lỗi: Giá thuê sân phải là số nguyên dương hợp lệ!');
+      return;
+    }
+
+    if (!courtNumber || courtNumber < 1) {
+      setErrorMessage('Lỗi: Số thứ tự sân phải lớn hơn hoặc bằng 1!');
       return;
     }
 
@@ -167,26 +172,30 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
       name: trimmedName,
       sport,
       courtNumber: Number(courtNumber) || 1,
-      courtTypeLabel: courtTypeLabel || undefined,
+      courtTypeLabel: courtTypeLabel.trim() || undefined,
       pricePerHour: Number(pricePerHour) || 0,
       peakPricePerHour: Number(peakPricePerHour) || 0,
       status,
-      surface: surface || 'Tiêu chuẩn',
-      lighting: lighting || 'Đèn LED tiêu chuẩn',
-      description: description || 'Sân thể thao đạt chuẩn.',
+      surface: surface.trim() || 'Tiêu chuẩn',
+      lighting: lighting.trim() || 'Đèn LED tiêu chuẩn',
+      description: description.trim() || 'Sân thể thao đạt chuẩn.',
       amenities: amenities.length > 0 ? amenities : ['Hệ thống chiếu sáng']
     };
 
-    let resultCourt: Court;
-    if (isEditing && court) {
-      updateCourt(court.id, courtPayload);
-      resultCourt = { ...court, ...courtPayload };
-    } else {
-      resultCourt = addCourt(courtPayload);
-    }
+    try {
+      let resultCourt: Court;
+      if (isEditing && court) {
+        updateCourt(court.id, courtPayload);
+        resultCourt = { ...court, ...courtPayload };
+      } else {
+        resultCourt = addCourt(courtPayload);
+      }
 
-    onSuccess(resultCourt, affectedBookings);
-    onClose();
+      onSuccess(resultCourt, affectedBookings, !isEditing);
+      onClose();
+    } catch (err: any) {
+      setErrorMessage(`Lỗi hệ thống: ${err?.message || 'Không thể lưu thông tin sân, vui lòng thử lại!'}`);
+    }
   };
 
   if (!isOpen) return null;
@@ -229,9 +238,12 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
           {/* Error Banner */}
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 font-medium">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-              <span>{errorMessage}</span>
+            <div className="p-3.5 bg-red-50 border-2 border-red-300 text-red-800 rounded-xl flex items-start gap-2.5 font-medium shadow-xs">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-bold block text-red-900 text-xs">Phát hiện lỗi nhập liệu:</span>
+                <span className="text-xs text-red-700">{errorMessage}</span>
+              </div>
             </div>
           )}
 

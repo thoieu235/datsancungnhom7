@@ -5,6 +5,7 @@ import { TIME_SLOTS, formatVND, formatDateVN, getSportDetails } from '../../util
 import { SportFilterBar } from '../customer/SportFilterBar';
 import { ChangeCourtModal } from './ChangeCourtModal';
 import { CheckInModal } from './CheckInModal';
+import { CollectPaymentModal } from './CollectPaymentModal';
 import { BookingModal } from '../customer/BookingModal';
 import {
   Activity,
@@ -19,7 +20,8 @@ import {
   XCircle,
   LogOut,
   QrCode,
-  Calendar
+  Calendar,
+  X
 } from 'lucide-react';
 
 export const ManagerDashboard: React.FC = () => {
@@ -36,7 +38,9 @@ export const ManagerDashboard: React.FC = () => {
 
   // Modals state
   const [selectedBookingForChange, setSelectedBookingForChange] = useState<Booking | null>(null);
-  const [selectedBookingForCheckIn, setSelectedBookingForCheckIn] = useState<Booking | null>(null);
+  const [selectedBookingSummary, setSelectedBookingSummary] = useState<Booking | null>(null);
+  const [bookingForCheckInModal, setBookingForCheckInModal] = useState<Booking | null>(null);
+  const [bookingForCollectModal, setBookingForCollectModal] = useState<Booking | null>(null);
   const [quickBookingSlot, setQuickBookingSlot] = useState<{ court: Court; startTime: string; endTime: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [checkInCodeInput, setCheckInCodeInput] = useState('');
@@ -64,7 +68,7 @@ export const ManagerDashboard: React.FC = () => {
     );
 
     if (target) {
-      setSelectedBookingForCheckIn(target);
+      setBookingForCheckInModal(target);
       setCheckInCodeInput('');
     } else {
       alert('Không tìm thấy đơn đặt hoặc mã vé nào trùng khớp cho ngày hôm nay!');
@@ -267,7 +271,7 @@ export const ManagerDashboard: React.FC = () => {
                       return (
                         <div
                           key={slotTime}
-                          onClick={() => setSelectedBookingForCheckIn(booking)}
+                          onClick={() => setSelectedBookingSummary(booking)}
                           className="p-1 border-r border-slate-100 bg-amber-100/90 hover:bg-amber-200 transition-colors cursor-pointer group flex flex-col justify-center text-center"
                           title={`Bấm để quản lý đơn: ${booking.customerName} (${booking.startTime}-${booking.endTime})`}
                         >
@@ -281,7 +285,7 @@ export const ManagerDashboard: React.FC = () => {
                       return (
                         <div
                           key={slotTime}
-                          onClick={() => setSelectedBookingForCheckIn(booking)}
+                          onClick={() => setSelectedBookingSummary(booking)}
                           className="p-1 border-r border-slate-100 bg-blue-100/80 hover:bg-blue-200 transition-colors cursor-pointer group flex flex-col justify-center text-center"
                           title={`Bấm để Check-in hoặc Đổi sân: ${booking.customerName} (${booking.startTime}-${booking.endTime})`}
                         >
@@ -313,34 +317,34 @@ export const ManagerDashboard: React.FC = () => {
       </div>
 
       {/* Selected Booking Quick Action Drawer / Dialog for Manager */}
-      {selectedBookingForCheckIn && (
+      {selectedBookingSummary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div>
                 <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  {selectedBookingForCheckIn.id}
+                  {selectedBookingSummary.id}
                 </span>
                 <h4 className="font-bold text-slate-900 text-sm mt-1">
                   Quản Lý Đơn Đặt Sân
                 </h4>
               </div>
               <button
-                onClick={() => setSelectedBookingForCheckIn(null)}
-                className="text-slate-400 hover:text-slate-700 p-1"
+                onClick={() => setSelectedBookingSummary(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-200/50 cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl space-y-1 border border-slate-200">
-                <div className="font-bold text-slate-900 text-sm">{selectedBookingForCheckIn.courtName}</div>
+                <div className="font-bold text-slate-900 text-sm">{selectedBookingSummary.courtName}</div>
                 <div className="text-slate-600">
-                  {formatDateVN(selectedBookingForCheckIn.date)} · <strong className="font-mono">{selectedBookingForCheckIn.startTime} - {selectedBookingForCheckIn.endTime}</strong>
+                  {formatDateVN(selectedBookingSummary.date)} · <strong className="font-mono">{selectedBookingSummary.startTime} - {selectedBookingSummary.endTime}</strong>
                 </div>
                 <div className="text-slate-600">
-                  Khách: <strong>{selectedBookingForCheckIn.customerName}</strong> ({selectedBookingForCheckIn.customerPhone})
+                  Khách: <strong>{selectedBookingSummary.customerName}</strong> ({selectedBookingSummary.customerPhone})
                 </div>
               </div>
 
@@ -348,43 +352,60 @@ export const ManagerDashboard: React.FC = () => {
               <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1.5 text-emerald-950">
                 <div className="flex justify-between">
                   <span>Tổng tiền thuê:</span>
-                  <span className="font-mono font-bold">{formatVND(selectedBookingForCheckIn.totalAmount)}</span>
+                  <span className="font-mono font-bold">{formatVND(selectedBookingSummary.totalAmount)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Đã nhận cọc ({selectedBookingForCheckIn.depositRate}%):</span>
-                  <span className="font-mono font-bold text-emerald-800">{formatVND(selectedBookingForCheckIn.depositAmount)}</span>
+                  <span>Đã nhận cọc ({selectedBookingSummary.depositRate}%):</span>
+                  <div className="text-right">
+                    <span className="font-mono font-bold text-emerald-800">{formatVND(selectedBookingSummary.depositAmount)}</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      ({selectedBookingSummary.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})
+                    </span>
+                  </div>
                 </div>
                 <div className="flex justify-between border-t border-emerald-200/80 pt-1 text-amber-900 font-bold">
                   <span>Số tiền còn lại cần thu:</span>
-                  <span className="font-mono">{formatVND(selectedBookingForCheckIn.remainingAmount)}</span>
+                  <span className="font-mono">{formatVND(selectedBookingSummary.remainingAmount)}</span>
                 </div>
               </div>
 
-              {/* 4 Operations: Đổi sân, Check-in, Check-out, Hủy đơn */}
+              {/* Operations: Check-in, Thu tiền còn lại, Đổi sân, Trả sân, Hủy đơn */}
               <div className="space-y-2 pt-1">
-                {selectedBookingForCheckIn.checkInStatus === 'not_checked_in' && (
+                {selectedBookingSummary.checkInStatus === 'not_checked_in' && (
                   <button
                     onClick={() => {
-                      const b = selectedBookingForCheckIn;
-                      setSelectedBookingForCheckIn(null);
-                      // Trigger full check-in flow
-                      setSelectedBookingForChange(null);
-                      // open dedicated check-in dialog
-                      setTimeout(() => setSelectedBookingForCheckIn(b), 10);
+                      const b = selectedBookingSummary;
+                      setSelectedBookingSummary(null);
+                      setBookingForCheckInModal(b);
                     }}
                     className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Check-In & Thu Tiền Còn Lại ({formatVND(selectedBookingForCheckIn.remainingAmount)})</span>
+                    <span>Check-In & Thu Tiền Còn Lại ({formatVND(selectedBookingSummary.remainingAmount)})</span>
                   </button>
                 )}
 
-                {selectedBookingForCheckIn.checkInStatus === 'checked_in' && (
+                {/* If already checked-in but still owes remaining balance */}
+                {selectedBookingSummary.checkInStatus === 'checked_in' && selectedBookingSummary.remainingAmount > 0 && (
+                  <button
+                    onClick={() => {
+                      const b = selectedBookingSummary;
+                      setSelectedBookingSummary(null);
+                      setBookingForCollectModal(b);
+                    }}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    <span>Thu Tiền Còn Lại ({formatVND(selectedBookingSummary.remainingAmount)}) - Tiền Mặt / CK</span>
+                  </button>
+                )}
+
+                {selectedBookingSummary.checkInStatus === 'checked_in' && (
                   <button
                     onClick={() => {
                       if (confirm('Xác nhận khách đã trả sân và hoàn tất ca thi đấu?')) {
-                        checkOutBooking(selectedBookingForCheckIn.id);
-                        setSelectedBookingForCheckIn(null);
+                        checkOutBooking(selectedBookingSummary.id);
+                        setSelectedBookingSummary(null);
                       }
                     }}
                     className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
@@ -397,8 +418,8 @@ export const ManagerDashboard: React.FC = () => {
                 {/* Change Court button */}
                 <button
                   onClick={() => {
-                    const b = selectedBookingForCheckIn;
-                    setSelectedBookingForCheckIn(null);
+                    const b = selectedBookingSummary;
+                    setSelectedBookingSummary(null);
                     setSelectedBookingForChange(b);
                   }}
                   className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
@@ -412,9 +433,9 @@ export const ManagerDashboard: React.FC = () => {
                   onClick={() => {
                     const reason = prompt('Nhập lý do khách yêu cầu hủy sân:');
                     if (reason !== null) {
-                      cancelBooking(selectedBookingForCheckIn.id, reason);
+                      cancelBooking(selectedBookingSummary.id, reason);
                       alert('Đã hủy lịch sân và cập nhật trạng thái đơn!');
-                      setSelectedBookingForCheckIn(null);
+                      setSelectedBookingSummary(null);
                     }
                   }}
                   className="w-full py-2 px-4 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
@@ -426,6 +447,28 @@ export const ManagerDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Check In Modal */}
+      {bookingForCheckInModal && (
+        <CheckInModal
+          booking={bookingForCheckInModal}
+          onClose={() => setBookingForCheckInModal(null)}
+          onSuccess={() => setBookingForCheckInModal(null)}
+        />
+      )}
+
+      {/* Collect Remaining Payment Modal */}
+      {bookingForCollectModal && (
+        <CollectPaymentModal
+          booking={bookingForCollectModal}
+          isOpen={!!bookingForCollectModal}
+          onClose={() => setBookingForCollectModal(null)}
+          onSuccess={(method, amount) => {
+            alert(`Đã thu thành công ${formatVND(amount)} (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})!`);
+            setBookingForCollectModal(null);
+          }}
+        />
       )}
 
       {/* Change Court Modal */}

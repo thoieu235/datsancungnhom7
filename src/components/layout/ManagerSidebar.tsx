@@ -48,9 +48,9 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
     },
     {
       id: 'manager_customers',
-      label: 'Khách hàng',
+      label: 'Quản lý khách hàng',
       icon: Users,
-      desc: 'Lịch sử & thông tin khách'
+      desc: 'Định danh theo SĐT & lịch sử'
     }
   ];
 

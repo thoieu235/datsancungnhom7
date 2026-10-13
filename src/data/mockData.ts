@@ -249,6 +249,50 @@ export const INITIAL_CUSTOMERS: CustomerProfile[] = [
     isVip: false,
     notes: 'Thường đặt sân bóng 3 hoặc 4.',
     createdAt: '2026-10-01'
+  },
+  {
+    id: 'cust-5',
+    name: 'Phạm Thanh Tùng',
+    phone: '0977889900',
+    email: 'tung.pham@viettel.com.vn',
+    totalBookings: 5,
+    totalSpent: 1400000,
+    isVip: false,
+    notes: 'Thường thuê thêm vợt pickleball tại quầy.',
+    createdAt: '2026-10-05'
+  },
+  {
+    id: 'cust-6',
+    name: 'Vũ Quốc Bảo',
+    phone: '0961223344',
+    email: 'baovu.tech@gmail.com',
+    totalBookings: 9,
+    totalSpent: 3150000,
+    isVip: true,
+    notes: 'Khách VIP doanh nghiệp FPT, đặt sân cố định hàng tuần.',
+    createdAt: '2026-08-22'
+  },
+  {
+    id: 'cust-7',
+    name: 'Hoàng Mai Phương',
+    phone: '0945667788',
+    email: 'maiphuong.h@gmail.com',
+    totalBookings: 2,
+    totalSpent: 480000,
+    isVip: false,
+    notes: 'Khách mới tập chơi cầu lông.',
+    createdAt: '2026-10-08'
+  },
+  {
+    id: 'cust-8',
+    name: 'Bùi Đức Trọng',
+    phone: '0919887766',
+    email: 'trongbui@vnpay.vn',
+    totalBookings: 7,
+    totalSpent: 2200000,
+    isVip: false,
+    notes: 'Ưa thích thanh toán chuyển khoản VietQR.',
+    createdAt: '2026-09-20'
   }
 ];
 
