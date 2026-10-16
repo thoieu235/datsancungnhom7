@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Court, Booking, CustomerProfile, FacilitySettings, SportType, PaymentMethod } from '../types';
+import { Court, Booking, CustomerProfile, FacilitySettings, SportType, PaymentMethod, BookingServiceItem, BookingInvoice, BookingAuditLog, PaymentSuccessNotification } from '../types';
 import { INITIAL_COURTS, INITIAL_SETTINGS, INITIAL_CUSTOMERS, getInitialBookings } from '../data/mockData';
 
 interface AppContextType {
@@ -17,19 +17,29 @@ interface AppContextType {
   updateBooking: (id: string, updates: Partial<Booking>) => void;
   changeCourtBooking: (id: string, newCourtId: string, newDate: string, newStartTime: string, newEndTime: string) => boolean;
   cancelBooking: (id: string, note?: string) => void;
-  checkInBooking: (id: string, collectRemainingPayment?: boolean, remainingMethod?: PaymentMethod) => void;
+  confirmDepositByManager: (bookingId: string, customAmount?: number, method?: PaymentMethod, note?: string) => Booking | null;
+  payDepositByCustomer: (bookingId: string, method?: PaymentMethod) => Booking | null;
+  cancelDepositPending: (bookingId: string, reason?: string) => void;
+  addServiceToBooking: (bookingId: string, service: Omit<BookingServiceItem, 'id'>) => void;
+  removeServiceFromBooking: (bookingId: string, serviceId: string) => void;
+  checkInBooking: (id: string) => void;
   checkOutBooking: (id: string) => void;
-  collectRemainingPayment: (id: string, method?: PaymentMethod) => void;
+  collectRemainingPayment: (id: string, method?: PaymentMethod, finalServices?: BookingServiceItem[], collectorName?: string, discrepancyNote?: string) => BookingInvoice | null;
   updateCourt: (id: string, updates: Partial<Court>) => void;
   addCourt: (court: Omit<Court, 'id'>) => Court;
   deleteCourt: (id: string) => void;
   updateCustomer: (phoneOrId: string, updates: Partial<CustomerProfile>) => void;
+  lockCustomer: (phoneOrId: string, reason?: string) => void;
+  unlockCustomer: (phoneOrId: string) => void;
   updateSettings: (updates: Partial<FacilitySettings>) => void;
   resetAllData: () => void;
   selectedSport: SportType;
   setSelectedSport: (sport: SportType) => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
+  paymentNotification: PaymentSuccessNotification | null;
+  triggerPaymentSuccess: (notification: Omit<PaymentSuccessNotification, 'id' | 'timestamp'>) => void;
+  clearPaymentSuccess: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,8 +47,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const STORAGE_KEYS = {
   ROLE: 'sportarena_role_v1',
   COURTS: 'sportarena_courts_v1',
-  BOOKINGS: 'sportarena_bookings_v1',
-  CUSTOMERS: 'sportarena_customers_v1',
+  BOOKINGS: 'sportarena_bookings_v2', // bumped to reload initial bookings with deposit_pending and checked_in demo data
+  CUSTOMERS: 'sportarena_customers_v2',
   SETTINGS: 'sportarena_settings_v1',
   CUSTOMER_PHONE: 'sportarena_cust_phone_v1',
   CUSTOMER_NAME: 'sportarena_cust_name_v1',
@@ -97,6 +107,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_SETTINGS;
   });
 
+  // Global payment success notification state
+  const [paymentNotification, setPaymentNotification] = useState<PaymentSuccessNotification | null>(null);
+
+  const triggerPaymentSuccess = (notification: Omit<PaymentSuccessNotification, 'id' | 'timestamp'>) => {
+    const newNotif: PaymentSuccessNotification = {
+      ...notification,
+      id: `pay-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString()
+    };
+    setPaymentNotification(newNotif);
+  };
+
+  const clearPaymentSuccess = () => {
+    setPaymentNotification(null);
+  };
+
+  // UC01 E2: Auto-expire pending deposit bookings after 10 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date().toISOString();
+      setBookings(prev => {
+        let hasExpired = false;
+        const updated = prev.map(b => {
+          if (
+            b.paymentStatus === 'deposit_pending' &&
+            b.depositExpiresAt &&
+            new Date(now).getTime() > new Date(b.depositExpiresAt).getTime()
+          ) {
+            hasExpired = true;
+            return {
+              ...b,
+              paymentStatus: 'cancelled' as const,
+              checkInStatus: 'cancelled' as const,
+              note: `${b.note ? b.note + ' | ' : ''}Hệ thống tự động hủy giữ chỗ do quá 10 phút chờ thanh toán cọc (E2)`,
+              auditLogs: [
+                ...(b.auditLogs || []),
+                {
+                  id: `log-${Date.now()}`,
+                  timestamp: now,
+                  actorRole: 'system' as const,
+                  actorName: 'Hệ thống tự động',
+                  action: 'deposit_expired' as const,
+                  note: 'Quá thời hạn 10 phút thanh toán cọc, đã giải phóng lịch sân'
+                }
+              ]
+            };
+          }
+          return b;
+        });
+        return hasExpired ? updated : prev;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Sync to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ROLE, role);
@@ -148,12 +214,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newId = `BK-${randNum}`;
     const qrPassCode = `PASS-${bookingData.sport.slice(0, 2).toUpperCase()}-${randNum}`;
     const now = new Date().toISOString();
+    const isDepositPending = bookingData.paymentStatus === 'deposit_pending';
+    const depositExpiresAt = isDepositPending
+      ? new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      : undefined;
+
+    const initialAuditLogs: BookingAuditLog[] = [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: now,
+        actorRole: bookingData.createdByRole,
+        actorName: bookingData.createdByRole === 'manager' ? 'Quản lý sân' : bookingData.customerName,
+        action: 'create_booking',
+        amount: bookingData.totalAmount,
+        note: isDepositPending
+          ? `Tạo đơn đặt sân chờ cọc 10 phút (${bookingData.depositRate}% - ${bookingData.depositAmount.toLocaleString('vi-VN')} ₫)`
+          : `Tạo đơn đặt sân trực tiếp và đã xác nhận cọc ${bookingData.depositRate}%`
+      }
+    ];
 
     const newBooking: Booking = {
       ...bookingData,
       id: newId,
       createdAt: now,
       qrPassCode,
+      depositExpiresAt,
+      auditLogs: initialAuditLogs,
     };
 
     setBookings(prev => [newBooking, ...prev]);
@@ -170,8 +256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...existing,
           name: bookingData.customerName || existing.name,
           totalBookings: newTotalBookings,
-          totalSpent: newTotalSpent,
-          isVip: newTotalSpent >= 3000000 || newTotalBookings >= 5,
+          totalSpent: newTotalSpent
         };
         return updatedList;
       } else {
@@ -182,19 +267,184 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: bookingData.customerEmail,
           totalBookings: 1,
           totalSpent: bookingData.totalAmount,
-          isVip: false,
-          notes: 'Khách hàng mới tạo từ hệ thống đặt online',
+          notes: 'Khách hàng tạo từ hệ thống đặt online',
           createdAt: now.split('T')[0]
         };
         return [newCustomer, ...prev];
       }
     });
 
+    if (newBooking.depositAmount > 0 && newBooking.paymentStatus !== 'deposit_pending') {
+      triggerPaymentSuccess({
+        bookingId: newBooking.id,
+        customerName: newBooking.customerName,
+        customerPhone: newBooking.customerPhone,
+        courtName: newBooking.courtName,
+        title: 'Thanh toán tiền cọc thành công!',
+        message: `Đã xác nhận thanh toán tiền cọc ${newBooking.depositAmount.toLocaleString('vi-VN')} ₫ (${newBooking.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản VietQR'}) cho đơn ${newBooking.id}. Lịch sân đã được giữ chỗ.`,
+        amount: newBooking.depositAmount,
+        paymentMethod: newBooking.paymentMethod,
+        type: newBooking.depositAmount >= newBooking.totalAmount ? 'full' : 'deposit'
+      });
+    }
+
     return newBooking;
   };
 
   const updateBooking = (id: string, updates: Partial<Booking>) => {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  };
+
+  // UC01 A1: Quản lý sân xác nhận cọc hộ khách
+  const confirmDepositByManager = (
+    bookingId: string,
+    customAmount?: number,
+    method: PaymentMethod = 'cash',
+    note?: string
+  ): Booking | null => {
+    const now = new Date().toISOString();
+    let updatedBooking: Booking | null = null;
+
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      
+      // BR-01: Chỉ cho phép thanh toán/xác nhận cọc đối với booking trạng thái "Chờ thanh toán cọc"
+      if (b.paymentStatus !== 'deposit_pending') return b;
+
+      // BR-02: Tiền cọc hệ thống tự tính mặc định là 30%, quản lý sân có quyền tùy chỉnh
+      const depositPaid = customAmount !== undefined && customAmount !== null ? customAmount : b.depositAmount;
+      const newRemaining = Math.max(0, b.totalAmount - depositPaid);
+      const isFullyPaid = depositPaid >= b.totalAmount;
+
+      const newAuditLog: BookingAuditLog = {
+        id: `log-${Date.now()}`,
+        timestamp: now,
+        actorRole: 'manager',
+        actorName: 'Quản lý sân',
+        action: 'deposit_manager_confirmed',
+        amount: depositPaid,
+        paymentMethod: method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản ngoài',
+        note: note || `Quản lý xác nhận thu cọc hộ khách (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản ngoài'}): ${depositPaid.toLocaleString('vi-VN')} ₫`
+      };
+
+      updatedBooking = {
+        ...b,
+        paymentStatus: isFullyPaid ? 'fully_paid' : 'deposited',
+        depositAmount: depositPaid,
+        remainingAmount: newRemaining,
+        paymentMethod: method,
+        depositPaidAt: now,
+        depositCollector: 'Quản lý sân',
+        depositExpiresAt: undefined, // Hủy timer đếm ngược vì đã cọc thành công
+        auditLogs: [...(b.auditLogs || []), newAuditLog],
+        zaloNotification: {
+          sent: true,
+          sentAt: now,
+          recipientPhone: b.customerPhone,
+          content: `SportArena Zalo ZNS: Xác nhận thu cọc thành công! Đơn ${b.id}, Sân ${b.courtName}, ${b.startTime}-${b.endTime} ngày ${b.date}. Tiền cọc đã nhận: ${depositPaid.toLocaleString('vi-VN')} ₫ (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản ngoài'}). Mã vé: ${b.qrPassCode}.`
+        }
+      };
+
+      return updatedBooking;
+    }));
+
+    if (updatedBooking) {
+      const ub = updatedBooking as Booking;
+      triggerPaymentSuccess({
+        bookingId: ub.id,
+        customerName: ub.customerName,
+        customerPhone: ub.customerPhone,
+        courtName: ub.courtName,
+        title: 'Xác nhận thu cọc thành công!',
+        message: `Quản lý đã thu cọc ${ub.depositAmount.toLocaleString('vi-VN')} ₫ (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}) cho đơn ${ub.id}. Thẻ SportPass đã được kích hoạt.`,
+        amount: ub.depositAmount,
+        paymentMethod: method,
+        type: 'deposit'
+      });
+    }
+
+    return updatedBooking;
+  };
+
+  // UC01 Case 1: Khách hàng tự thanh toán cọc trên hệ thống
+  const payDepositByCustomer = (bookingId: string, method: PaymentMethod = 'vietqr'): Booking | null => {
+    const now = new Date().toISOString();
+    let updatedBooking: Booking | null = null;
+
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      if (b.paymentStatus !== 'deposit_pending') return b;
+
+      const newAuditLog: BookingAuditLog = {
+        id: `log-${Date.now()}`,
+        timestamp: now,
+        actorRole: 'customer',
+        actorName: b.customerName,
+        action: 'deposit_customer_paid',
+        amount: b.depositAmount,
+        paymentMethod: method,
+        note: 'Khách hàng tự thanh toán cọc qua mã QR VietQR (Cổng thanh toán xác nhận Webhook/IPN)'
+      };
+
+      updatedBooking = {
+        ...b,
+        paymentStatus: 'deposited',
+        paymentMethod: method,
+        depositPaidAt: now,
+        depositExpiresAt: undefined,
+        auditLogs: [...(b.auditLogs || []), newAuditLog],
+        zaloNotification: {
+          sent: true,
+          sentAt: now,
+          recipientPhone: b.customerPhone,
+          content: `SportArena Zalo ZNS: Đặt cọc thành công đơn ${b.id}! Sân ${b.courtName}, ${b.startTime}-${b.endTime} ngày ${b.date}. Tiền cọc đã thanh toán: ${b.depositAmount.toLocaleString('vi-VN')} ₫ qua VietQR. Mã vé nhận sân: ${b.qrPassCode}.`
+        }
+      };
+
+      return updatedBooking;
+    }));
+
+    if (updatedBooking) {
+      const ub = updatedBooking as Booking;
+      triggerPaymentSuccess({
+        bookingId: ub.id,
+        customerName: ub.customerName,
+        customerPhone: ub.customerPhone,
+        courtName: ub.courtName,
+        title: 'Thanh toán cọc trực tuyến thành công!',
+        message: `Hệ thống đã nhận thanh toán cọc ${ub.depositAmount.toLocaleString('vi-VN')} ₫ qua VietQR cho đơn ${ub.id}. Lịch sân đã được xác nhận giữ chỗ.`,
+        amount: ub.depositAmount,
+        paymentMethod: 'vietqr',
+        type: 'deposit'
+      });
+    }
+
+    return updatedBooking;
+  };
+
+  // UC01 E1: Khách hủy giao dịch hoặc thanh toán thất bại
+  const cancelDepositPending = (bookingId: string, reason?: string) => {
+    const now = new Date().toISOString();
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      return {
+        ...b,
+        paymentStatus: 'cancelled',
+        checkInStatus: 'cancelled',
+        note: `${b.note ? b.note + ' | ' : ''}Hủy giữ chỗ: ${reason || 'Khách hủy thanh toán cọc'}`,
+        auditLogs: [
+          ...(b.auditLogs || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: now,
+            actorRole: 'customer',
+            actorName: b.customerName,
+            action: 'cancel',
+            note: reason || 'Khách hủy giao dịch thanh toán cọc'
+          }
+        ]
+      };
+    }));
   };
 
   const changeCourtBooking = (id: string, newCourtId: string, newDate: string, newStartTime: string, newEndTime: string): boolean => {
@@ -208,7 +458,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       b.date === newDate &&
       b.checkInStatus !== 'cancelled' &&
       b.paymentStatus !== 'cancelled' &&
-      // overlap check
       ((newStartTime >= b.startTime && newStartTime < b.endTime) ||
        (newEndTime > b.startTime && newEndTime <= b.endTime) ||
        (newStartTime <= b.startTime && newEndTime >= b.endTime))
@@ -236,18 +485,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelBooking = (id: string, cancelNote?: string) => {
+    const now = new Date().toISOString();
     setBookings(prev => prev.map(b => {
       if (b.id !== id) return b;
       return {
         ...b,
         paymentStatus: 'cancelled',
         checkInStatus: 'cancelled',
-        note: `${b.note ? b.note + ' | ' : ''}Đã hủy: ${cancelNote || 'Khách liên hệ hủy'}`
+        note: `${b.note ? b.note + ' | ' : ''}Đã hủy: ${cancelNote || 'Khách liên hệ hủy'}`,
+        auditLogs: [
+          ...(b.auditLogs || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: now,
+            actorRole: 'manager',
+            actorName: 'Quản lý sân',
+            action: 'cancel',
+            note: cancelNote || 'Quản lý hủy đơn đặt sân'
+          }
+        ]
       };
     }));
   };
 
-  const checkInBooking = (id: string, collectRemaining: boolean = true, remainingMethod: PaymentMethod = 'cash') => {
+  // UC02 E1: Thêm dịch vụ giờ chót
+  const addServiceToBooking = (bookingId: string, service: Omit<BookingServiceItem, 'id'>) => {
+    const newService: BookingServiceItem = {
+      ...service,
+      id: `srv-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      const currentServices = b.services || [];
+      const updatedServices = [...currentServices, newService];
+      return {
+        ...b,
+        services: updatedServices,
+        auditLogs: [
+          ...(b.auditLogs || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            actorRole: 'manager',
+            actorName: 'Quản lý sân',
+            action: 'service_added',
+            amount: newService.price * newService.quantity,
+            note: `Thêm dịch vụ: ${newService.name} x${newService.quantity} (${(newService.price * newService.quantity).toLocaleString('vi-VN')} ₫)`
+          }
+        ]
+      };
+    }));
+  };
+
+  const removeServiceFromBooking = (bookingId: string, serviceId: string) => {
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      return {
+        ...b,
+        services: (b.services || []).filter(s => s.id !== serviceId)
+      };
+    }));
+  };
+
+  // Khi check-in thì KHÔNG thu tiền, chỉ phát sinh thu tiền khi check-out
+  const checkInBooking = (id: string) => {
     const now = new Date().toISOString();
     setBookings(prev => prev.map(b => {
       if (b.id !== id) return b;
@@ -255,11 +557,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...b,
         checkInStatus: 'checked_in',
         checkedInAt: now,
-        ...(collectRemaining ? {
-          paymentStatus: 'fully_paid',
-          remainingAmount: 0,
-          remainingPaymentMethod: remainingMethod
-        } : {})
+        // Giữ nguyên remainingAmount và paymentStatus (không thu tiền khi check-in)
+        auditLogs: [
+          ...(b.auditLogs || []),
+          {
+            id: `log-${Date.now()}`,
+            timestamp: now,
+            actorRole: 'manager',
+            actorName: 'Quản lý sân',
+            action: 'check_in',
+            note: 'Khách hàng check-in nhận sân (Chưa thu tiền còn lại, chỉ thu khi check-out)'
+          }
+        ]
       };
     }));
   };
@@ -276,16 +585,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const collectRemainingPayment = (id: string, method: PaymentMethod = 'cash') => {
+  // Thanh toán số tiền còn lại (Tất toán) tại thời điểm Check-out
+  const collectRemainingPayment = (
+    id: string,
+    method: PaymentMethod = 'cash',
+    finalServices?: BookingServiceItem[],
+    collectorName: string = 'Quản lý sân',
+    discrepancyNote?: string
+  ): BookingInvoice | null => {
+    const now = new Date().toISOString();
+    let generatedInvoice: BookingInvoice | null = null;
+    let targetCustomerPhone = '';
+    let targetGrandTotal = 0;
+
     setBookings(prev => prev.map(b => {
       if (b.id !== id) return b;
+
+      // Tiền còn lại = Tổng tiền sân - Tiền cọc đã thanh toán
+      const effectiveServices = finalServices || b.services || [];
+      const totalServicesCost = effectiveServices.reduce((sum, s) => sum + (s.price * s.quantity), 0);
+      const grandTotal = b.totalAmount + totalServicesCost;
+      const remainingToCollect = Math.max(0, grandTotal - b.depositAmount);
+
+      targetCustomerPhone = b.customerPhone;
+      targetGrandTotal = grandTotal;
+
+      const invoice: BookingInvoice = {
+        invoiceId: `INV-${Date.now().toString().slice(-6)}`,
+        bookingId: b.id,
+        issuedAt: now,
+        courtFee: b.totalAmount,
+        servicesFee: totalServicesCost,
+        depositPaid: b.depositAmount,
+        remainingPaid: remainingToCollect,
+        totalCollected: grandTotal,
+        paymentMethod: method,
+        collectedBy: collectorName,
+        services: effectiveServices,
+        isLocked: true,
+        status: 'Paid',
+        discrepancyNote: discrepancyNote || undefined
+      };
+
+      generatedInvoice = invoice;
+
+      const newAuditLog: BookingAuditLog = {
+        id: `log-${Date.now()}`,
+        timestamp: now,
+        actorRole: 'manager',
+        actorName: collectorName,
+        action: 'final_payment_paid',
+        amount: remainingToCollect,
+        paymentMethod: method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản VietQR',
+        note: `Đã tất toán số tiền còn lại: ${remainingToCollect.toLocaleString('vi-VN')} ₫ (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}). Hóa đơn ${invoice.invoiceId} đã được khóa hoàn tất.${discrepancyNote ? ` [Thỏa thuận: ${discrepancyNote}]` : ''}`
+      };
+
       return {
         ...b,
         paymentStatus: 'fully_paid',
+        checkInStatus: 'checked_out',
+        checkedOutAt: now,
         remainingAmount: 0,
-        remainingPaymentMethod: method
+        remainingPaymentMethod: method,
+        services: effectiveServices,
+        invoice,
+        auditLogs: [...(b.auditLogs || []), newAuditLog]
       };
     }));
+
+    // UC-17 bước 8: MOD-04 báo MOD-03 chuyển Booking sang Completed và ghi dữ liệu vào lịch sử khách hàng ở MOD-01
+    if (targetCustomerPhone) {
+      setCustomers(prevCust => prevCust.map(c => {
+        if (c.phone === targetCustomerPhone) {
+          return {
+            ...c,
+            totalBookings: (c.totalBookings || 0) + 1,
+            totalSpent: (c.totalSpent || 0) + targetGrandTotal
+          };
+        }
+        return c;
+      }));
+    }
+
+    if (generatedInvoice) {
+      const inv: BookingInvoice = generatedInvoice;
+      const targetB = bookings.find(item => item.id === id);
+      triggerPaymentSuccess({
+        bookingId: id,
+        customerName: targetB?.customerName || 'Khách hàng',
+        customerPhone: targetB?.customerPhone || targetCustomerPhone,
+        courtName: targetB?.courtName || 'Sân thể thao',
+        title: 'Thanh toán tất toán thành công!',
+        message: `Đã thu số tiền còn lại ${inv.remainingPaid.toLocaleString('vi-VN')} ₫ (${method === 'cash' ? 'Tiền mặt tại quầy' : 'Chuyển khoản VietQR'}) cho đơn ${id}. Hóa đơn điện tử đã chốt hoàn tất.`,
+        amount: inv.remainingPaid,
+        paymentMethod: method,
+        type: 'settlement'
+      });
+    }
+
+    return generatedInvoice;
   };
 
   const updateCourt = (id: string, updates: Partial<Court>) => {
@@ -308,6 +706,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateCustomer = (phoneOrId: string, updates: Partial<CustomerProfile>) => {
     setCustomers(prev => prev.map(c => (c.id === phoneOrId || c.phone === phoneOrId) ? { ...c, ...updates } : c));
+  };
+
+  const lockCustomer = (phoneOrId: string, reason?: string) => {
+    const defaultReason = reason?.trim() || 'Chủ sân tạm khóa đặt sân do vi phạm nội quy/bùng kèo';
+    const now = new Date().toISOString();
+    setCustomers(prev => prev.map(c => {
+      if (c.id === phoneOrId || c.phone === phoneOrId) {
+        return {
+          ...c,
+          isLocked: true,
+          lockedReason: defaultReason,
+          lockedAt: now
+        };
+      }
+      return c;
+    }));
+  };
+
+  const unlockCustomer = (phoneOrId: string) => {
+    setCustomers(prev => prev.map(c => {
+      if (c.id === phoneOrId || c.phone === phoneOrId) {
+        return {
+          ...c,
+          isLocked: false,
+          lockedReason: undefined,
+          lockedAt: undefined
+        };
+      }
+      return c;
+    }));
   };
 
   const updateSettings = (updates: Partial<FacilitySettings>) => {
@@ -342,6 +770,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateBooking,
         changeCourtBooking,
         cancelBooking,
+        confirmDepositByManager,
+        payDepositByCustomer,
+        cancelDepositPending,
+        addServiceToBooking,
+        removeServiceFromBooking,
         checkInBooking,
         checkOutBooking,
         collectRemainingPayment,
@@ -349,12 +782,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCourt,
         deleteCourt,
         updateCustomer,
+        lockCustomer,
+        unlockCustomer,
         updateSettings,
         resetAllData,
         selectedSport,
         setSelectedSport,
         selectedDate,
         setSelectedDate,
+        paymentNotification,
+        triggerPaymentSuccess,
+        clearPaymentSuccess
       }}
     >
       {children}

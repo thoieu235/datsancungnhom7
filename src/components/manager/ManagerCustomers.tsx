@@ -23,15 +23,31 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Users
+  Users,
+  Lock,
+  Unlock,
+  ShieldAlert,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 
+const PRESET_LOCK_REASONS = [
+  'Bùng sân không đến nhận & không báo trước',
+  'Nợ tiền thanh toán dịch vụ / giờ chơi chưa hoàn tất',
+  'Vi phạm nội quy an ninh, gây rối tại khu thể thao',
+  'Gây hư hỏng thiết bị, cơ sở vật chất sân',
+  'Khác (nhập lý do cụ thể bên dưới)...'
+];
+
 export const ManagerCustomers: React.FC = () => {
-  const { customers, bookings, cancelBooking, checkOutBooking } = useApp();
+  const { customers, bookings, cancelBooking, checkOutBooking, lockCustomer, unlockCustomer } = useApp();
 
   // Search input state and applied search term
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+
+  // Status Filter: all | active | locked
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'locked'>('all');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,6 +59,15 @@ export const ManagerCustomers: React.FC = () => {
   // Selected modals
   const [selectedDetailCustomer, setSelectedDetailCustomer] = useState<CustomerProfile | null>(null);
   const [selectedHistoryCustomer, setSelectedHistoryCustomer] = useState<CustomerProfile | null>(null);
+
+  // Quick lock / unlock modals from table
+  const [customerToLock, setCustomerToLock] = useState<CustomerProfile | null>(null);
+  const [customerToUnlock, setCustomerToUnlock] = useState<CustomerProfile | null>(null);
+  const [selectedReason, setSelectedReason] = useState(PRESET_LOCK_REASONS[0]);
+  const [customReason, setCustomReason] = useState('');
+
+  // Toast feedback
+  const [toastFeedback, setToastFeedback] = useState<{ message: string; type: 'success' | 'warning' } | null>(null);
 
   // Modals for booking actions from customer history
   const [selectedBookingForChange, setSelectedBookingForChange] = useState<Booking | null>(null);
@@ -69,14 +94,23 @@ export const ManagerCustomers: React.FC = () => {
   const handleResetSearch = () => {
     setSearchInput('');
     setAppliedSearch('');
+    setStatusFilter('all');
     setErrorMessage(null);
     setCurrentPage(1);
   };
 
-  // Filtered customers (Phone is primary, Name is secondary)
+  // Counts
+  const activeCount = useMemo(() => customers.filter(c => !c.isLocked).length, [customers]);
+  const lockedCount = useMemo(() => customers.filter(c => !!c.isLocked).length, [customers]);
+
+  // Filtered customers (Status + Phone primary, Name secondary)
   const filteredCustomers = useMemo(() => {
     try {
       return customers.filter(c => {
+        // Status filter
+        if (statusFilter === 'active' && c.isLocked) return false;
+        if (statusFilter === 'locked' && !c.isLocked) return false;
+
         if (!appliedSearch) return true;
 
         const term = appliedSearch.toLowerCase();
@@ -93,7 +127,7 @@ export const ManagerCustomers: React.FC = () => {
       setErrorMessage('Đã xảy ra lỗi khi tìm kiếm và lọc danh sách khách hàng.');
       return [];
     }
-  }, [customers, appliedSearch]);
+  }, [customers, appliedSearch, statusFilter]);
 
   // Pagination calculation
   const totalItems = filteredCustomers.length;
@@ -111,8 +145,69 @@ export const ManagerCustomers: React.FC = () => {
     return bookings.filter(b => b.customerPhone === selectedHistoryCustomer.phone);
   }, [selectedHistoryCustomer, bookings]);
 
+  // Handle Lock Confirm from Table
+  const handleConfirmLock = () => {
+    if (!customerToLock) return;
+    const finalReason = selectedReason.startsWith('Khác')
+      ? (customReason.trim() || 'Chủ sân tạm khóa theo yêu cầu quản lý')
+      : selectedReason;
+
+    lockCustomer(customerToLock.phone, finalReason);
+    const lockedName = customerToLock.name;
+    const lockedPhone = customerToLock.phone;
+    setCustomerToLock(null);
+    setCustomReason('');
+    setSelectedReason(PRESET_LOCK_REASONS[0]);
+
+    setToastFeedback({
+      message: `Đã khóa khách hàng ${lockedName} (${lockedPhone}) thành công!`,
+      type: 'warning'
+    });
+    setTimeout(() => setToastFeedback(null), 4000);
+  };
+
+  // Handle Unlock Confirm from Table
+  const handleConfirmUnlock = () => {
+    if (!customerToUnlock) return;
+    const unlockedName = customerToUnlock.name;
+    const unlockedPhone = customerToUnlock.phone;
+    unlockCustomer(customerToUnlock.phone);
+    setCustomerToUnlock(null);
+
+    setToastFeedback({
+      message: `Đã mở khóa tài khoản khách hàng ${unlockedName} (${unlockedPhone}) thành công!`,
+      type: 'success'
+    });
+    setTimeout(() => setToastFeedback(null), 4000);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Toast Feedback */}
+      {toastFeedback && (
+        <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between shadow-md animate-in slide-in-from-top-2 ${
+          toastFeedback.type === 'success'
+            ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+            : 'bg-rose-50 text-rose-900 border-rose-300'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {toastFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span>{toastFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastFeedback(null)}
+            className="text-slate-400 hover:text-slate-700 p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -125,22 +220,90 @@ export const ManagerCustomers: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Tra cứu hồ sơ theo SĐT (chính) và tên (phụ), xem lịch sử đặt sân và quản lý ca chơi.
+            Tra cứu hồ sơ khách, khóa / mở khóa đặt sân trực tiếp và theo dõi lịch sử ca chơi.
           </p>
         </div>
 
         {/* Quick Summary Badges */}
-        <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center gap-2">
             <Users className="w-4 h-4 text-slate-500" />
-            <span className="text-slate-600">Tổng khách hàng:</span>
+            <span className="text-slate-600">Tổng:</span>
             <strong className="font-mono text-slate-900 font-bold">{customers.length}</strong>
+          </div>
+
+          <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-emerald-800 font-medium">Hoạt động:</span>
+            <strong className="font-mono text-emerald-950 font-bold">{activeCount}</strong>
+          </div>
+
+          <div className={`px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 border ${
+            lockedCount > 0
+              ? 'bg-rose-50 border-rose-200 text-rose-900'
+              : 'bg-slate-50 border-slate-200 text-slate-600'
+          }`}>
+            <Lock className={`w-4 h-4 ${lockedCount > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+            <span className="font-medium">Đang bị khóa:</span>
+            <strong className="font-mono font-bold">{lockedCount}</strong>
           </div>
         </div>
       </div>
 
-      {/* Search Bar & Controls */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+      {/* Search Bar & Filter Controls */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-slate-600 mr-1">Lọc theo trạng thái:</span>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('all');
+              setCurrentPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Tất cả ({customers.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('active');
+              setCurrentPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'active'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Đang hoạt động ({activeCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('locked');
+              setCurrentPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'locked'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200'
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Đang bị khóa ({lockedCount})</span>
+          </button>
+        </div>
+
+        {/* Search Form */}
         <form onSubmit={handleExecuteSearch} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* Search Input */}
           <div className="relative flex-1">
@@ -156,7 +319,7 @@ export const ManagerCustomers: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSearchInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                 title="Xóa ô nhập"
               >
                 <X className="w-3.5 h-3.5" />
@@ -164,7 +327,7 @@ export const ManagerCustomers: React.FC = () => {
             )}
           </div>
 
-          {/* Explicit Search Button */}
+          {/* Search Button */}
           <button
             type="submit"
             className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs shrink-0"
@@ -174,7 +337,7 @@ export const ManagerCustomers: React.FC = () => {
           </button>
 
           {/* Reset Button */}
-          {appliedSearch && (
+          {(appliedSearch || statusFilter !== 'all') && (
             <button
               type="button"
               onClick={handleResetSearch}
@@ -232,18 +395,18 @@ export const ManagerCustomers: React.FC = () => {
             </div>
             <div className="max-w-md mx-auto">
               <h3 className="font-bold text-sm text-slate-900">
-                {appliedSearch
+                {appliedSearch || statusFilter !== 'all'
                   ? 'Không tìm thấy dữ liệu khách hàng phù hợp'
                   : 'Chưa có dữ liệu khách hàng nào'}
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 {appliedSearch
-                  ? `Không có khách hàng nào khớp với từ khóa "${appliedSearch}". Vui lòng thử tìm kiếm lại bằng số điện thoại khác hoặc đặt lại bộ lọc.`
+                  ? `Không có khách hàng nào khớp với tiêu chí tìm kiếm. Vui lòng thử tìm kiếm lại bằng số điện thoại khác hoặc đặt lại bộ lọc.`
                   : 'Hệ thống chưa ghi nhận thông tin khách hàng nào. Khách đặt sân sẽ tự động được thêm vào danh sách.'}
               </p>
             </div>
 
-            {appliedSearch && (
+            {(appliedSearch || statusFilter !== 'all') && (
               <button
                 type="button"
                 onClick={handleResetSearch}
@@ -259,14 +422,18 @@ export const ManagerCustomers: React.FC = () => {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px] tracking-wider">
-                  <th className="p-3.5 text-center w-16">STT</th>
-                  <th className="p-3.5 min-w-[180px]">Họ tên</th>
-                  <th className="p-3.5 min-w-[170px]">Số điện thoại</th>
-                  <th className="p-3.5 text-center w-40">
-                    Thao tác (Xem chi tiết)
+                  <th className="p-3.5 text-center w-14">STT</th>
+                  <th className="p-3.5 min-w-[170px]">Họ tên</th>
+                  <th className="p-3.5 min-w-[160px]">Số điện thoại</th>
+                  <th className="p-3.5 min-w-[160px]">Trạng thái</th>
+                  <th className="p-3.5 text-center w-36">
+                    Khóa / Mở khóa
                   </th>
-                  <th className="p-3.5 text-center w-48">
-                    Xem lịch sử đặt sân
+                  <th className="p-3.5 text-center w-32">
+                    Chi tiết
+                  </th>
+                  <th className="p-3.5 text-center w-40">
+                    Lịch sử đặt sân
                   </th>
                 </tr>
               </thead>
@@ -278,22 +445,33 @@ export const ManagerCustomers: React.FC = () => {
                   return (
                     <tr
                       key={cust.id || cust.phone}
-                      className="hover:bg-slate-50/70 transition-colors"
+                      className={`hover:bg-slate-50/70 transition-colors ${
+                        cust.isLocked ? 'bg-rose-50/30' : ''
+                      }`}
                     >
                       {/* 1. STT */}
                       <td className="p-3.5 text-center font-mono font-bold text-slate-500">
                         {stt}
                       </td>
 
-                      {/* 2. Họ tên (Secondary) */}
+                      {/* 2. Họ tên */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 border border-slate-200">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${
+                            cust.isLocked
+                              ? 'bg-rose-100 text-rose-700 border-rose-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
                             {cust.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900">
-                              {cust.name}
+                            <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                              <span>{cust.name}</span>
+                              {cust.isVip && (
+                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.2 rounded border border-amber-200">
+                                  VIP
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-400">
                               {cust.email || 'Họ tên phụ · Chưa có email'}
@@ -326,32 +504,80 @@ export const ManagerCustomers: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* 4. Thao tác (Xem chi tiết) */}
+                      {/* 4. Trạng thái (Hoạt động / Đang bị khóa) */}
+                      <td className="p-3.5">
+                        {cust.isLocked ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-full font-bold text-[11px]">
+                              <Lock className="w-3 h-3 text-rose-600 shrink-0" />
+                              <span>Đang bị khóa</span>
+                            </span>
+                            {cust.lockedReason && (
+                              <p className="text-[10px] text-rose-600 font-medium truncate max-w-[180px]" title={cust.lockedReason}>
+                                Lý do: {cust.lockedReason}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full font-semibold text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Hoạt động</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 5. Khóa / Mở khóa (Thao tác nhanh cho chủ sân) */}
+                      <td className="p-3.5 text-center">
+                        {cust.isLocked ? (
+                          <button
+                            type="button"
+                            onClick={() => setCustomerToUnlock(cust)}
+                            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-xs"
+                            title="Mở khóa tài khoản khách này"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                            <span>Mở khóa</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomerToLock(cust);
+                              setSelectedReason(PRESET_LOCK_REASONS[0]);
+                              setCustomReason('');
+                            }}
+                            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300 rounded-xl font-semibold text-xs transition-colors cursor-pointer"
+                            title="Khóa đặt sân đối với khách này"
+                          >
+                            <Lock className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Khóa</span>
+                          </button>
+                        )}
+                      </td>
+
+                      {/* 6. Chi tiết */}
                       <td className="p-3.5 text-center">
                         <button
                           type="button"
                           onClick={() => setSelectedDetailCustomer(cust)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs transition-colors cursor-pointer shadow-2xs border border-slate-200"
+                          className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-xs transition-colors cursor-pointer shadow-2xs border border-slate-200"
                           title="Xem chi tiết hồ sơ khách hàng"
                         >
                           <Eye className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Xem chi tiết</span>
+                          <span>Chi tiết</span>
                         </button>
                       </td>
 
-                      {/* 5. Xem lịch sử đặt sân */}
+                      {/* 7. Lịch sử đặt sân */}
                       <td className="p-3.5 text-center">
                         <button
                           type="button"
                           onClick={() => setSelectedHistoryCustomer(cust)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer shadow-xs"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition-colors cursor-pointer shadow-xs"
                           title="Xem lịch sử tất cả các ca đặt sân"
                         >
                           <History className="w-3.5 h-3.5" />
-                          <span>Lịch sử đặt sân</span>
-                          <span className="ml-1 bg-emerald-700/80 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
-                            {custBookingsCount}
-                          </span>
+                          <span>Lịch sử ({custBookingsCount})</span>
                         </button>
                       </td>
                     </tr>
@@ -431,9 +657,9 @@ export const ManagerCustomers: React.FC = () => {
                     key={pageNum}
                     type="button"
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`min-w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
+                    className={`w-7 h-7 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer ${
                       validCurrentPage === pageNum
-                        ? 'bg-emerald-600 text-white shadow-xs'
+                        ? 'bg-emerald-600 text-white shadow-2xs font-bold'
                         : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
@@ -448,7 +674,7 @@ export const ManagerCustomers: React.FC = () => {
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={validCurrentPage === totalPages}
                 className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
-                title="Trang sau"
+                title="Trang kế tiếp"
               >
                 <ChevronRight className="w-4 h-4 text-slate-600" />
               </button>
@@ -468,24 +694,201 @@ export const ManagerCustomers: React.FC = () => {
         )}
       </div>
 
-      {/* 1. MODAL: Customer Detail Profile ("Xem chi tiết") */}
+      {/* QUICK LOCK MODAL FROM TABLE */}
+      {customerToLock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-slate-200 bg-rose-50/70 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Khóa Khách Hàng
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Chặn quyền tự đặt sân mới trên hệ thống
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerToLock(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Target Customer Info */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Khách hàng:</span>
+                  <strong className="text-slate-900 font-bold">{customerToLock.name}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Số điện thoại:</span>
+                  <span className="font-mono font-bold text-emerald-800">{customerToLock.phone}</span>
+                </div>
+              </div>
+
+              {/* Reasons Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Chọn lý do khóa tài khoản:
+                </label>
+                <div className="space-y-1.5">
+                  {PRESET_LOCK_REASONS.map(reason => (
+                    <label
+                      key={reason}
+                      className={`flex items-start gap-2 p-2.5 rounded-xl text-xs cursor-pointer border transition-colors ${
+                        selectedReason === reason
+                          ? 'bg-rose-50 border-rose-300 text-rose-950 font-medium'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tableLockReason"
+                        value={reason}
+                        checked={selectedReason === reason}
+                        onChange={() => setSelectedReason(reason)}
+                        className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                      />
+                      <span>{reason}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {selectedReason.startsWith('Khác') && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                    Nhập chi tiết lý do:
+                  </label>
+                  <input
+                    type="text"
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    placeholder="Ví dụ: Nợ tiền nước ngọt, gây mất trật tự..."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomerToLock(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLock}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Xác nhận khóa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK UNLOCK MODAL FROM TABLE */}
+      {customerToUnlock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-slate-200 bg-emerald-50/70 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Unlock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Mở Khóa Khách Hàng
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Khôi phục quyền đặt sân online cho khách
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerToUnlock(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Khách hàng:</span>
+                  <strong className="text-slate-900 font-bold">{customerToUnlock.name}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Số điện thoại:</span>
+                  <span className="font-mono font-bold text-emerald-800">{customerToUnlock.phone}</span>
+                </div>
+                {customerToUnlock.lockedReason && (
+                  <div className="pt-1 border-t border-slate-200 mt-1">
+                    <span className="text-slate-500 block">Lý do đã khóa trước đó:</span>
+                    <span className="font-semibold text-rose-800">{customerToUnlock.lockedReason}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-600">
+                Sau khi mở khóa, khách hàng sẽ có thể tự do đặt sân online, nhận mã QR vé và tham gia các hoạt động tại cụm sân như bình thường.
+              </p>
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomerToUnlock(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUnlock}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Xác nhận mở khóa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Detail Modal */}
       {selectedDetailCustomer && (
         <CustomerDetailModal
           customer={selectedDetailCustomer}
           isOpen={true}
           onClose={() => setSelectedDetailCustomer(null)}
-          onViewHistory={(cust) => {
+          onViewHistory={(c) => {
             setSelectedDetailCustomer(null);
-            setSelectedHistoryCustomer(cust);
+            setSelectedHistoryCustomer(c);
           }}
         />
       )}
 
-      {/* 2. MODAL: Customer Booking History ("Xem lịch sử đặt sân") */}
+      {/* Customer Booking History Full Slide-over / Modal */}
       {selectedHistoryCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
-            {/* Modal Header */}
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            {/* Header */}
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
@@ -493,15 +896,14 @@ export const ManagerCustomers: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">
-                    Lịch Sử Đặt Sân Của Khách Hàng
+                    Lịch Sử Đặt Sân: {selectedHistoryCustomer.name}
                   </h3>
-                  <div className="text-xs text-slate-600 font-mono mt-0.5 flex items-center gap-2">
-                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                    <span className="font-mono text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       SĐT: {selectedHistoryCustomer.phone}
                     </span>
-                    <span className="text-slate-500 font-sans">
-                      (Họ tên: {selectedHistoryCustomer.name})
-                    </span>
+                    <span>·</span>
+                    <span>{historyBookings.length} lượt đặt</span>
                   </div>
                 </div>
               </div>
@@ -515,88 +917,49 @@ export const ManagerCustomers: React.FC = () => {
               </button>
             </div>
 
-            {/* Customer Summary Bar */}
-            <div className="px-6 py-3 bg-slate-100/60 border-b border-slate-200 grid grid-cols-3 gap-4 text-xs">
-              <div>
-                <span className="text-slate-500">Tổng lượt đặt:</span>
-                <div className="font-bold font-mono text-slate-900 text-sm mt-0.5">
-                  {historyBookings.length} lượt
-                </div>
-              </div>
-              <div>
-                <span className="text-slate-500">Tổng tiền tích lũy:</span>
-                <div className="font-bold font-mono text-emerald-700 text-sm mt-0.5">
-                  {formatVND(
-                    historyBookings.reduce(
-                      (sum, b) => sum + (b.paymentStatus !== 'cancelled' ? b.totalAmount : 0),
-                      0
-                    )
-                  )}
-                </div>
-              </div>
-              <div>
-                <span className="text-slate-500">Đơn chờ nhận sân:</span>
-                <div className="font-bold font-mono text-amber-700 text-sm mt-0.5">
-                  {
-                    historyBookings.filter(
-                      b => b.checkInStatus === 'not_checked_in' && b.paymentStatus !== 'cancelled'
-                    ).length
-                  }{' '}
-                  đơn
-                </div>
-              </div>
-            </div>
-
-            {/* Bookings List Area */}
-            <div className="p-6 overflow-y-auto space-y-3 flex-1">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                Danh Sách Các Ca Đặt Sân ({historyBookings.length})
-              </h4>
-
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-3">
               {historyBookings.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
-                  Khách hàng này chưa có đơn đặt sân nào trên hệ thống.
+                <div className="p-8 text-center text-slate-400">
+                  <History className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-xs">Khách hàng chưa có lượt đặt sân nào.</p>
                 </div>
               ) : (
-                historyBookings.map(b => {
-                  const sportMeta = getSportDetails(b.sport);
+                historyBookings.map((b) => {
+                  const sportInfo = getSportDetails(b.sport);
                   return (
                     <div
                       key={b.id}
-                      className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all text-xs space-y-2.5 shadow-xs"
+                      className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors space-y-2.5 text-xs shadow-2xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
                             {b.id}
                           </span>
-                          <span className="font-semibold text-slate-700">{b.courtName}</span>
-                          <span className="text-slate-400">· {sportMeta.label}</span>
+                          <span className="font-semibold text-slate-800">
+                            {b.courtName}
+                          </span>
                         </div>
-
-                        {/* Status badge */}
-                        <div>
-                          {b.paymentStatus === 'cancelled' ? (
-                            <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                              Đã hủy
-                            </span>
-                          ) : b.checkInStatus === 'checked_in' ? (
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                              Đang chơi
-                            </span>
-                          ) : b.checkInStatus === 'checked_out' ? (
-                            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                              Đã hoàn tất
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              Đã cọc {b.depositRate}% · Chờ nhận sân
-                            </span>
-                          )}
-                        </div>
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                          b.checkInStatus === 'checked_out'
+                            ? 'bg-slate-100 text-slate-700'
+                            : b.checkInStatus === 'checked_in'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : b.paymentStatus === 'cancelled'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {b.checkInStatus === 'checked_out'
+                            ? 'Đã trả sân'
+                            : b.checkInStatus === 'checked_in'
+                            ? 'Đang đá'
+                            : b.paymentStatus === 'cancelled'
+                            ? 'Đã hủy'
+                            : 'Chờ nhận sân'}
+                        </span>
                       </div>
 
-                      {/* Date & Time */}
                       <div className="flex flex-wrap items-center justify-between text-slate-600 bg-slate-50 p-2.5 rounded-lg">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -635,7 +998,7 @@ export const ManagerCustomers: React.FC = () => {
                             onClick={() => setSelectedBookingForCheckIn(b)}
                             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
                           >
-                            Check-in & Thu tiền
+                            Check-in nhận sân
                           </button>
                         )}
 

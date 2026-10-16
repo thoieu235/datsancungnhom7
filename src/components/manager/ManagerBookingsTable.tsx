@@ -5,6 +5,10 @@ import { formatVND, formatDateVN, getSportDetails } from '../../utils/formatters
 import { ChangeCourtModal } from './ChangeCourtModal';
 import { CheckInModal } from './CheckInModal';
 import { CollectPaymentModal } from './CollectPaymentModal';
+import { ManagerConfirmDepositModal } from './ManagerConfirmDepositModal';
+import { BookingAuditLogsModal } from './BookingAuditLogsModal';
+import { ZaloNotificationModal } from '../common/ZaloNotificationModal';
+import { WebInvoiceModal } from '../common/WebInvoiceModal';
 import {
   Search,
   Filter,
@@ -22,7 +26,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  ShieldCheck,
+  Clock,
+  FileText,
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react';
 
 export const ManagerBookingsTable: React.FC = () => {
@@ -38,9 +47,16 @@ export const ManagerBookingsTable: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+
+  // Modals
   const [selectedBookingForChange, setSelectedBookingForChange] = useState<Booking | null>(null);
   const [selectedBookingForCheckIn, setSelectedBookingForCheckIn] = useState<Booking | null>(null);
   const [selectedBookingForCollect, setSelectedBookingForCollect] = useState<Booking | null>(null);
+  const [selectedBookingForDeposit, setSelectedBookingForDeposit] = useState<Booking | null>(null);
+  const [selectedBookingForAudit, setSelectedBookingForAudit] = useState<Booking | null>(null);
+  const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
+  const [zaloNotificationData, setZaloNotificationData] = useState<any | null>(null);
+
   const [toastNotification, setToastNotification] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +65,25 @@ export const ManagerBookingsTable: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [toastNotification]);
+
+  // Live timer tick for deposit countdown
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getDepositRemainingSeconds = (expiresAt?: string): number => {
+    if (!expiresAt) return 0;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.max(0, Math.floor(diff / 1000));
+  };
+
+  const formatCountdown = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const filteredBookings = bookings.filter(b => {
     // Search
@@ -63,10 +98,12 @@ export const ManagerBookingsTable: React.FC = () => {
     // Sport
     if (sportFilter !== 'all' && b.sport !== sportFilter) return false;
 
-    // Status
-    if (statusFilter === 'unpaid_remaining' && (b.remainingAmount === 0 || b.paymentStatus === 'cancelled')) return false;
+    // Status filter
+    if (statusFilter === 'deposit_pending' && b.paymentStatus !== 'deposit_pending') return false;
+    if (statusFilter === 'deposited' && (b.paymentStatus !== 'deposited' || b.checkInStatus !== 'not_checked_in')) return false;
     if (statusFilter === 'checked_in' && b.checkInStatus !== 'checked_in') return false;
-    if (statusFilter === 'not_checked_in' && (b.checkInStatus !== 'not_checked_in' || b.paymentStatus === 'cancelled')) return false;
+    if (statusFilter === 'unpaid_remaining' && (b.remainingAmount === 0 || b.paymentStatus === 'cancelled')) return false;
+    if (statusFilter === 'fully_paid' && (b.paymentStatus !== 'fully_paid' || b.checkInStatus !== 'checked_out')) return false;
     if (statusFilter === 'cancelled' && b.paymentStatus !== 'cancelled') return false;
 
     return true;
@@ -89,7 +126,7 @@ export const ManagerBookingsTable: React.FC = () => {
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-xs">Thanh toán hoàn tất!</h4>
+              <h4 className="font-bold text-xs">Thao tác thành công!</h4>
               <p className="text-xs font-medium mt-0.5">{toastNotification}</p>
             </div>
           </div>
@@ -102,41 +139,37 @@ export const ManagerBookingsTable: React.FC = () => {
         </div>
       )}
 
-      {/* Header and Filter Controls */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Danh Sách Đơn Đặt Sân
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Quản lý ca đặt, đổi sân và kiểm tra tiền cọc
-            </p>
-          </div>
-
+      {/* Header & Filter Controls */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl font-mono">
-              Tổng số: {filteredBookings.length} đơn
+            <h2 className="text-lg font-bold text-slate-900">Danh Sách & Quản Lý Đặt Sân</h2>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full uppercase">
+              Tích hợp UC01 & UC02
             </span>
           </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Xác nhận cọc hộ (UC01 · A1), kiểm tra mã vé SportPass, thu tiền còn lại (UC02) và xem nhật ký audit log
+          </p>
         </div>
 
-        {/* Filters Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Tìm theo Mã đơn, Tên khách, SĐT, Tên sân..."
+              placeholder="Tìm theo Mã đơn, Tên, SĐT, Sân..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+              className="pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 w-56 sm:w-64"
             />
           </div>
 
+          {/* Sport Filter */}
           <div>
             <select
               value={sportFilter}
@@ -144,15 +177,16 @@ export const ManagerBookingsTable: React.FC = () => {
                 setSportFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700 cursor-pointer"
             >
-              <option value="all">Tất cả môn (Bóng đá, Cầu lông, Pickleball)</option>
+              <option value="all">Tất cả môn thể thao</option>
               <option value="football">⚽ Bóng Đá (6 sân)</option>
               <option value="badminton">🏸 Cầu Lông (4 sân)</option>
               <option value="pickleball">🎾 Pickleball (4 sân)</option>
             </select>
           </div>
 
+          {/* Status Filter */}
           <div>
             <select
               value={statusFilter}
@@ -160,13 +194,15 @@ export const ManagerBookingsTable: React.FC = () => {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700 cursor-pointer"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="not_checked_in">Chờ nhận sân (Đã cọc 30%)</option>
-              <option value="checked_in">Đang chơi trên sân</option>
-              <option value="unpaid_remaining">Còn tiền chưa thu tại quầy</option>
-              <option value="cancelled">Đã hủy đơn</option>
+              <option value="deposit_pending">⏳ Chờ thanh toán cọc</option>
+              <option value="deposited">✓ Đã đặt cọc (Chờ nhận sân)</option>
+              <option value="checked_in">🏃 Đang chơi (Chờ thanh toán nốt)</option>
+              <option value="unpaid_remaining">💵 Còn tiền chưa thu tại quầy</option>
+              <option value="fully_paid">🏁 Đã hoàn thành (Khóa hóa đơn)</option>
+              <option value="cancelled">✕ Đã hủy đơn</option>
             </select>
           </div>
         </div>
@@ -180,11 +216,11 @@ export const ManagerBookingsTable: React.FC = () => {
               <tr>
                 <th className="p-3.5">Mã / Ngày Giờ</th>
                 <th className="p-3.5">Sân & Môn</th>
-                <th className="p-3.5">Khách Hàng</th>
+                <th className="p-3.5">Khách Hàng (SĐT chính)</th>
                 <th className="p-3.5 text-right">Tổng Tiền</th>
                 <th className="p-3.5 text-right">Tiền Đã Cọc</th>
-                <th className="p-3.5 text-right">Còn Lại Cần Thu</th>
-                <th className="p-3.5 text-center">Trạng Thái Sân</th>
+                <th className="p-3.5 text-right">Tiền Còn Lại</th>
+                <th className="p-3.5 text-center">Trạng Thái</th>
                 <th className="p-3.5 text-center">Thao Tác Quản Lý</th>
               </tr>
             </thead>
@@ -198,11 +234,21 @@ export const ManagerBookingsTable: React.FC = () => {
               ) : (
                 paginatedBookings.map(b => {
                   const sportMeta = getSportDetails(b.sport);
+                  const isDepositPending = b.paymentStatus === 'deposit_pending';
+                  const remainingSec = getDepositRemainingSeconds(b.depositExpiresAt);
+
                   return (
-                    <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={b.id} className={`hover:bg-slate-50/70 transition-colors ${isDepositPending ? 'bg-amber-50/30' : ''}`}>
                       {/* Code & Date */}
                       <td className="p-3.5">
-                        <span className="font-mono font-bold text-slate-900 block">{b.id}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-slate-900 block">{b.id}</span>
+                          {b.zaloNotification?.sent && (
+                            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-black" title="Đã gửi Zalo ZNS">
+                              Z
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[11px] text-slate-500">{formatDateVN(b.date)}</span>
                         <span className="font-mono text-emerald-800 text-[11px] block">{b.startTime} - {b.endTime}</span>
                       </td>
@@ -213,10 +259,13 @@ export const ManagerBookingsTable: React.FC = () => {
                         <span className="text-[11px] text-slate-500">{sportMeta.label} ({b.durationHours}h)</span>
                       </td>
 
-                      {/* Customer */}
+                      {/* Customer (Phone is Primary Identifier) */}
                       <td className="p-3.5">
-                        <span className="font-bold text-slate-900 block">{b.customerName}</span>
-                        <span className="font-mono text-[11px] text-slate-600 block">{b.customerPhone}</span>
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="font-mono font-extrabold text-slate-900 text-xs">{b.customerPhone}</span>
+                        </div>
+                        <span className="text-slate-600 font-medium block text-[11px] mt-0.5">{b.customerName}</span>
                         {b.note && (
                           <span className="text-[10px] text-slate-400 truncate max-w-[150px] block" title={b.note}>
                             {b.note}
@@ -229,46 +278,69 @@ export const ManagerBookingsTable: React.FC = () => {
                         {formatVND(b.totalAmount)}
                       </td>
 
-                      {/* Deposit */}
-                      <td className="p-3.5 text-right font-mono text-emerald-700 font-bold">
-                        <div>{formatVND(b.depositAmount)}</div>
-                        <div className="flex items-center justify-end gap-1 mt-0.5">
-                          <span className="text-[10px] text-slate-400 font-normal">({b.depositRate}%)</span>
-                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
-                            b.paymentMethod === 'cash'
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-blue-50 text-blue-800 border border-blue-200'
-                          }`}>
-                            {b.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
-                          </span>
-                        </div>
+                      {/* Deposit (UC01) */}
+                      <td className="p-3.5 text-right font-mono">
+                        {isDepositPending ? (
+                          <div className="space-y-1">
+                            <span className="text-amber-800 font-bold block text-[11px]">Chưa nộp cọc</span>
+                            <span className="text-[10px] text-slate-500 block">Đề xuất 30%: {formatVND(b.depositAmount)}</span>
+                            {/* UC01 A1: Quản lý sân xác nhận cọc hộ khách */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingForDeposit(b)}
+                              className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold shadow-2xs inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Xác nhận đã nhận cọc tại quầy"
+                            >
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Thu cọc tại quầy</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="text-emerald-700 font-bold">{formatVND(b.depositAmount)}</div>
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-normal">({b.depositRate}%)</span>
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+                                b.paymentMethod === 'cash'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
+                              }`}>
+                                {b.paymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </td>
 
-                      {/* Remaining */}
+                      {/* Remaining (UC02) */}
                       <td className="p-3.5 text-right font-mono">
                         {b.remainingAmount > 0 && b.paymentStatus !== 'cancelled' ? (
-                          <div className="font-bold text-amber-700">
+                          <div className="font-bold text-amber-700 space-y-1">
                             <div>{formatVND(b.remainingAmount)}</div>
+                            {/* UC-17: Thu tiền còn lại (Tất toán) & xuất Web Invoice */}
                             <button
+                              type="button"
                               onClick={() => setSelectedBookingForCollect(b)}
-                              className="inline-flex items-center gap-1 text-[10px] text-white bg-emerald-600 hover:bg-emerald-700 font-semibold px-2 py-0.5 rounded shadow-2xs mt-1 cursor-pointer transition-colors"
-                              title="Thu nốt tiền và chọn Tiền mặt hoặc Chuyển khoản"
+                              className="inline-flex items-center gap-1 text-[10px] text-white bg-emerald-600 hover:bg-emerald-700 font-semibold px-2 py-0.5 rounded shadow-2xs cursor-pointer transition-colors"
+                              title="Check-out & Thu tiền còn lại tại quầy"
                             >
                               <DollarSign className="w-3 h-3" />
-                              <span>Thu tiền ngay</span>
+                              <span>Tất toán / Thu tiền</span>
                             </button>
                           </div>
                         ) : (
                           <div>
                             <span className="text-slate-400 text-[11px] block">Đã đủ (0 ₫)</span>
-                            {b.remainingPaymentMethod && (
-                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold inline-block mt-0.5 ${
-                                b.remainingPaymentMethod === 'cash'
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
-                              }`}>
-                                Thu {b.remainingPaymentMethod === 'cash' ? 'tiền mặt' : 'chuyển khoản'}
-                              </span>
+                            {b.invoice && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedInvoiceBooking(b)}
+                                className="text-[10px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                                title="Xem Hóa Đơn Thanh Toán"
+                              >
+                                <FileText className="w-3 h-3" />
+                                <span>Hóa đơn: {b.invoice.invoiceId}</span>
+                              </button>
                             )}
                           </div>
                         )}
@@ -280,13 +352,27 @@ export const ManagerBookingsTable: React.FC = () => {
                           <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
                             Đã hủy
                           </span>
+                        ) : isDepositPending ? (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                              <span>Chờ thanh toán cọc</span>
+                            </span>
+                            {b.depositExpiresAt && (
+                              <div className="text-[10px] font-mono text-amber-700 font-bold flex items-center justify-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatCountdown(remainingSec)}</span>
+                              </div>
+                            )}
+                          </div>
                         ) : b.checkInStatus === 'checked_in' ? (
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                            Đang chơi
+                          <span className="text-[10px] font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                            <span>Đang chơi</span>
                           </span>
                         ) : b.checkInStatus === 'checked_out' ? (
-                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                            Đã trả sân
+                          <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-300">
+                            Hoàn thành
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -298,37 +384,53 @@ export const ManagerBookingsTable: React.FC = () => {
                       {/* Operations */}
                       <td className="p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {/* UC01 A1: Thu cọc hộ nếu pending */}
+                          {isDepositPending && (
+                            <button
+                              onClick={() => setSelectedBookingForDeposit(b)}
+                              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
+                              title="Xác nhận thu cọc hộ khách"
+                            >
+                              Thu cọc
+                            </button>
+                          )}
+
                           {/* Check-in */}
-                          {b.checkInStatus === 'not_checked_in' && b.paymentStatus !== 'cancelled' && (
+                          {b.checkInStatus === 'not_checked_in' && b.paymentStatus !== 'cancelled' && !isDepositPending && (
                             <button
                               onClick={() => setSelectedBookingForCheckIn(b)}
                               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
-                              title="Check-in và thu nốt tiền"
+                              title="Check-in và nhận sân"
                             >
                               Check-in
                             </button>
                           )}
 
-                          {/* Check-out */}
+                          {/* UC-17: Check-out & Thu tiền còn lại (Tất toán) */}
                           {b.checkInStatus === 'checked_in' && (
                             <button
-                              onClick={() => {
-                                if (confirm(`Xác nhận khách đã hoàn tất ca thi đấu cho đơn ${b.id}?`)) {
-                                  checkOutBooking(b.id);
-                                }
-                              }}
-                              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
-                              title="Check-out kết thúc ca"
+                              onClick={() => setSelectedBookingForCollect(b)}
+                              className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
+                              title="Check-out & Thu tiền còn lại tại quầy"
                             >
-                              Trả sân
+                              Check-out / Tất toán
                             </button>
                           )}
+
+                          {/* Audit Log */}
+                          <button
+                            onClick={() => setSelectedBookingForAudit(b)}
+                            className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                            title="Xem lịch sử giao dịch & nhật ký thao tác"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-slate-600" />
+                          </button>
 
                           {/* Đổi Sân */}
                           {b.paymentStatus !== 'cancelled' && b.checkInStatus !== 'checked_out' && (
                             <button
                               onClick={() => setSelectedBookingForChange(b)}
-                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-[11px] font-bold transition-colors cursor-pointer"
+                              className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded text-[11px] font-bold transition-colors cursor-pointer"
                               title="Đổi sân hoặc dời giờ cho khách"
                             >
                               Đổi sân
@@ -420,22 +522,9 @@ export const ManagerBookingsTable: React.FC = () => {
                 <ChevronLeft className="w-4 h-4 text-slate-600" />
               </button>
 
-              <div className="flex items-center gap-1 px-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`min-w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer ${
-                      validCurrentPage === pageNum
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
-              </div>
+              <span className="px-3 py-1 font-mono font-bold text-slate-900 bg-white border border-slate-200 rounded-lg text-xs">
+                {validCurrentPage} / {totalPages}
+              </span>
 
               <button
                 type="button"
@@ -461,12 +550,48 @@ export const ManagerBookingsTable: React.FC = () => {
         )}
       </div>
 
-      {/* Change Court Modal */}
-      {selectedBookingForChange && (
-        <ChangeCourtModal
-          booking={selectedBookingForChange}
-          onClose={() => setSelectedBookingForChange(null)}
-          onSuccess={() => setSelectedBookingForChange(null)}
+      {/* UC01 A1: Manager Confirm Deposit Modal */}
+      {selectedBookingForDeposit && (
+        <ManagerConfirmDepositModal
+          booking={selectedBookingForDeposit}
+          isOpen={true}
+          onClose={() => setSelectedBookingForDeposit(null)}
+          onSuccess={(updated) => {
+            setToastNotification(`Đã xác nhận thu cọc thành công cho đơn ${updated.id}! Hệ thống đã gửi tin Zalo ZNS và ghi log BR-03.`);
+            if (updated.zaloNotification) {
+              setZaloNotificationData({
+                recipientPhone: updated.customerPhone,
+                bookingId: updated.id,
+                courtName: updated.courtName,
+                dateTime: `${formatDateVN(updated.date)} ${updated.startTime}-${updated.endTime}`,
+                depositAmount: updated.depositAmount,
+                remainingAmount: updated.remainingAmount,
+                qrPassCode: updated.qrPassCode,
+                paymentMethod: updated.paymentMethod === 'cash' ? 'Tiền mặt tại quầy' : 'Chuyển khoản ngoài'
+              });
+            }
+          }}
+        />
+      )}
+
+      {/* UC02: Collect Remaining Payment Modal */}
+      {selectedBookingForCollect && (
+        <CollectPaymentModal
+          booking={selectedBookingForCollect}
+          isOpen={true}
+          onClose={() => setSelectedBookingForCollect(null)}
+          onSuccess={(invoice) => {
+            setToastNotification(`Hoàn tất thanh toán đơn ${invoice.bookingId}! Hóa đơn ${invoice.invoiceId} đã được ghi nhận và khóa vĩnh viễn (BR-03).`);
+          }}
+        />
+      )}
+
+      {/* Audit Logs Modal (BR-03) */}
+      {selectedBookingForAudit && (
+        <BookingAuditLogsModal
+          booking={selectedBookingForAudit}
+          isOpen={true}
+          onClose={() => setSelectedBookingForAudit(null)}
         />
       )}
 
@@ -475,20 +600,39 @@ export const ManagerBookingsTable: React.FC = () => {
         <CheckInModal
           booking={selectedBookingForCheckIn}
           onClose={() => setSelectedBookingForCheckIn(null)}
-          onSuccess={() => setSelectedBookingForCheckIn(null)}
+          onSuccess={() => {
+            setToastNotification(`Đã check-in thành công cho khách ${selectedBookingForCheckIn.customerName}!`);
+          }}
         />
       )}
 
-      {/* Collect Remaining Payment Modal (Cash or Transfer) */}
-      {selectedBookingForCollect && (
-        <CollectPaymentModal
-          booking={selectedBookingForCollect}
-          isOpen={!!selectedBookingForCollect}
-          onClose={() => setSelectedBookingForCollect(null)}
-          onSuccess={(method, amount) => {
-            setToastNotification(`Đã thu đủ ${formatVND(amount)} (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}) cho đơn ${selectedBookingForCollect.id}!`);
-            setSelectedBookingForCollect(null);
+      {/* Change Court Modal */}
+      {selectedBookingForChange && (
+        <ChangeCourtModal
+          booking={selectedBookingForChange}
+          onClose={() => setSelectedBookingForChange(null)}
+          onSuccess={() => {
+            setToastNotification(`Đã cập nhật lịch sân cho đơn ${selectedBookingForChange.id}!`);
           }}
+        />
+      )}
+
+      {/* Simulated Zalo ZNS Notification Popup */}
+      {zaloNotificationData && (
+        <ZaloNotificationModal
+          isOpen={true}
+          onClose={() => setZaloNotificationData(null)}
+          {...zaloNotificationData}
+        />
+      )}
+
+      {/* UC-17 Web Invoice Modal */}
+      {selectedInvoiceBooking && selectedInvoiceBooking.invoice && (
+        <WebInvoiceModal
+          invoice={selectedInvoiceBooking.invoice}
+          booking={selectedInvoiceBooking}
+          isOpen={true}
+          onClose={() => setSelectedInvoiceBooking(null)}
         />
       )}
     </div>

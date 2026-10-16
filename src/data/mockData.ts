@@ -280,7 +280,10 @@ export const INITIAL_CUSTOMERS: CustomerProfile[] = [
     totalBookings: 2,
     totalSpent: 480000,
     isVip: false,
-    notes: 'Khách mới tập chơi cầu lông.',
+    isLocked: true,
+    lockedReason: 'Bùng sân 2 lần không báo trước và nợ tiền cọc giữ sân',
+    lockedAt: '2026-10-12T14:30:00Z',
+    notes: 'Khách mới tập chơi cầu lông. Tạm khóa do bùng sân.',
     createdAt: '2026-10-08'
   },
   {
@@ -375,12 +378,148 @@ export const getInitialBookings = (): Booking[] => {
       paymentStatus: 'fully_paid',
       checkInStatus: 'checked_out',
       paymentMethod: 'vietqr',
+      remainingPaymentMethod: 'cash',
       qrPassCode: 'PASS-BM1-8903',
       note: 'Ca tập sáng sớm',
       createdByRole: 'customer',
       createdAt: `${today}T06:00:00Z`,
       checkedInAt: `${today}T07:55:00Z`,
-      checkedOutAt: `${today}T10:05:00Z`
+      checkedOutAt: `${today}T10:05:00Z`,
+      invoice: {
+        invoiceId: 'INV-108903',
+        bookingId: 'BK-8903',
+        issuedAt: `${today}T10:05:00Z`,
+        courtFee: 200000,
+        servicesFee: 0,
+        depositPaid: 60000,
+        remainingPaid: 140000,
+        totalCollected: 200000,
+        paymentMethod: 'cash',
+        collectedBy: 'Lễ tân ca sáng',
+        services: [],
+        isLocked: true,
+        status: 'Paid'
+      },
+      auditLogs: [
+        {
+          id: 'log-8903-1',
+          timestamp: `${today}T06:00:00Z`,
+          actorRole: 'customer',
+          actorName: 'Nguyễn Hoàng Minh',
+          action: 'create_booking',
+          amount: 200000,
+          note: 'Tạo đơn đặt sân cầu lông 2 giờ'
+        },
+        {
+          id: 'log-8903-2',
+          timestamp: `${today}T06:02:00Z`,
+          actorRole: 'customer',
+          actorName: 'Nguyễn Hoàng Minh',
+          action: 'deposit_customer_paid',
+          amount: 60000,
+          paymentMethod: 'vietqr',
+          note: 'Thanh toán cọc 30% qua VietQR'
+        },
+        {
+          id: 'log-8903-3',
+          timestamp: `${today}T07:55:00Z`,
+          actorRole: 'manager',
+          actorName: 'Lễ tân ca sáng',
+          action: 'check_in',
+          note: 'Khách hàng check-in nhận sân'
+        },
+        {
+          id: 'log-8903-4',
+          timestamp: `${today}T10:05:00Z`,
+          actorRole: 'manager',
+          actorName: 'Lễ tân ca sáng',
+          action: 'final_payment_paid',
+          amount: 140000,
+          paymentMethod: 'Tiền mặt',
+          note: 'Đã tất toán số tiền còn lại: 140.000 ₫ (Tiền mặt). Khóa hóa đơn INV-108903'
+        }
+      ]
+    },
+    {
+      id: 'BK-8898',
+      courtId: 'court-fb-1',
+      courtName: 'Sân Bóng Đá 1 (Cỏ nhân tạo 7 người)',
+      sport: 'football',
+      customerName: 'Trần Đình Trọng',
+      customerPhone: '0938112244',
+      customerEmail: 'trong.tran@fc.com',
+      date: getFormattedDate(-1),
+      startTime: '19:00',
+      endTime: '20:30',
+      durationHours: 1.5,
+      totalAmount: 675000,
+      depositRate: 30,
+      depositAmount: 202500,
+      remainingAmount: 0,
+      paymentStatus: 'fully_paid',
+      checkInStatus: 'checked_out',
+      paymentMethod: 'vietqr',
+      remainingPaymentMethod: 'vietqr',
+      qrPassCode: 'PASS-FB1-8898',
+      note: 'Giao hữu FC Xây Dựng',
+      createdByRole: 'customer',
+      createdAt: `${getFormattedDate(-1)}T10:00:00Z`,
+      checkedInAt: `${getFormattedDate(-1)}T18:50:00Z`,
+      checkedOutAt: `${getFormattedDate(-1)}T20:35:00Z`,
+      invoice: {
+        invoiceId: 'INV-108898',
+        bookingId: 'BK-8898',
+        issuedAt: `${getFormattedDate(-1)}T20:35:00Z`,
+        courtFee: 675000,
+        servicesFee: 0,
+        depositPaid: 202500,
+        remainingPaid: 472500,
+        totalCollected: 675000,
+        paymentMethod: 'vietqr',
+        collectedBy: 'Quản lý sân',
+        services: [],
+        isLocked: true,
+        status: 'Paid'
+      },
+      auditLogs: [
+        {
+          id: 'log-8898-1',
+          timestamp: `${getFormattedDate(-1)}T10:00:00Z`,
+          actorRole: 'customer',
+          actorName: 'Trần Đình Trọng',
+          action: 'create_booking',
+          amount: 675000,
+          note: 'Khách đặt sân bóng đá 7 người'
+        },
+        {
+          id: 'log-8898-2',
+          timestamp: `${getFormattedDate(-1)}T10:03:00Z`,
+          actorRole: 'customer',
+          actorName: 'Trần Đình Trọng',
+          action: 'deposit_customer_paid',
+          amount: 202500,
+          paymentMethod: 'vietqr',
+          note: 'Thanh toán cọc 30% qua VietQR'
+        },
+        {
+          id: 'log-8898-3',
+          timestamp: `${getFormattedDate(-1)}T18:50:00Z`,
+          actorRole: 'manager',
+          actorName: 'Quản lý sân',
+          action: 'check_in',
+          note: 'Khách hàng check-in nhận sân'
+        },
+        {
+          id: 'log-8898-4',
+          timestamp: `${getFormattedDate(-1)}T20:35:00Z`,
+          actorRole: 'manager',
+          actorName: 'Quản lý sân',
+          action: 'final_payment_paid',
+          amount: 472500,
+          paymentMethod: 'Chuyển khoản VietQR',
+          note: 'Tất toán tiền còn lại: 472.500 ₫ qua VietQR. Khóa hóa đơn INV-108898'
+        }
+      ]
     },
     {
       id: 'BK-8904',
@@ -449,9 +588,115 @@ export const getInitialBookings = (): Booking[] => {
       checkInStatus: 'not_checked_in',
       paymentMethod: 'vietqr',
       qrPassCode: 'PASS-BM2-8906',
-      note: '',
+      note: 'Khách quen đặt sân',
       createdByRole: 'customer',
       createdAt: `${today}T12:00:00Z`
+    },
+    {
+      id: 'BK-8907',
+      courtId: 'court-pk-3',
+      courtName: 'Sân Pickleball 3 (Mái che mát)',
+      sport: 'pickleball',
+      customerName: 'Bùi Đức Trọng',
+      customerPhone: '0919887766',
+      customerEmail: 'trongbui@vnpay.vn',
+      date: today,
+      startTime: '19:30',
+      endTime: '21:00',
+      durationHours: 1.5,
+      totalAmount: 300000,
+      depositRate: 30,
+      depositAmount: 90000,
+      remainingAmount: 210000,
+      paymentStatus: 'deposit_pending',
+      checkInStatus: 'not_checked_in',
+      paymentMethod: 'vietqr',
+      qrPassCode: 'PASS-PK3-8907',
+      note: 'Đơn mới tạo - Đang chờ cọc 30% trong 10 phút',
+      createdByRole: 'customer',
+      createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      depositExpiresAt: new Date(Date.now() + 8 * 60 * 1000).toISOString(),
+      auditLogs: [
+        {
+          id: 'log-8907-1',
+          timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+          actorRole: 'customer',
+          actorName: 'Bùi Đức Trọng',
+          action: 'create_booking',
+          amount: 300000,
+          note: 'Tạo đơn chờ thanh toán tiền cọc 30% (90.000 ₫)'
+        }
+      ]
+    },
+    {
+      id: 'BK-8908',
+      courtId: 'court-fb-3',
+      courtName: 'Sân Bóng Đá 3 (Cỏ nhân tạo 7 người)',
+      sport: 'football',
+      customerName: 'Nguyễn Văn Minh',
+      customerPhone: '0988776655',
+      customerEmail: 'minh.nguyen@company.com',
+      date: today,
+      startTime: '17:00',
+      endTime: '18:30',
+      durationHours: 1.5,
+      totalAmount: 675000,
+      depositRate: 30,
+      depositAmount: 202500,
+      remainingAmount: 472500,
+      paymentStatus: 'deposited',
+      checkInStatus: 'checked_in',
+      paymentMethod: 'vietqr',
+      qrPassCode: 'PASS-FB3-8908',
+      note: 'Khách đang đá sắp xong, chuẩn bị ra về thanh toán phần còn lại',
+      createdByRole: 'customer',
+      createdAt: `${today}T14:00:00Z`,
+      checkedInAt: `${today}T16:55:00Z`,
+      services: [
+        {
+          id: 'srv-1',
+          name: 'Nước suối Aquafina 500ml',
+          category: 'drink',
+          price: 10000,
+          quantity: 6
+        },
+        {
+          id: 'srv-2',
+          name: 'Thuê áo bib tập luyện (10 bộ)',
+          category: 'service',
+          price: 50000,
+          quantity: 1
+        }
+      ],
+      auditLogs: [
+        {
+          id: 'log-8908-1',
+          timestamp: `${today}T14:00:00Z`,
+          actorRole: 'customer',
+          actorName: 'Nguyễn Văn Minh',
+          action: 'create_booking',
+          amount: 675000,
+          note: 'Tạo đơn đặt sân'
+        },
+        {
+          id: 'log-8908-2',
+          timestamp: `${today}T14:02:00Z`,
+          actorRole: 'customer',
+          actorName: 'Nguyễn Văn Minh',
+          action: 'deposit_customer_paid',
+          amount: 202500,
+          paymentMethod: 'vietqr',
+          note: 'Thanh toán cọc 30% qua VietQR thành công'
+        },
+        {
+          id: 'log-8908-3',
+          timestamp: `${today}T16:55:00Z`,
+          actorRole: 'manager',
+          actorName: 'Lễ tân sân',
+          action: 'check_in',
+          note: 'Quét thẻ nhận sân'
+        }
+      ]
     }
   ];
 };

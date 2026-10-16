@@ -6,6 +6,9 @@ import { SportFilterBar } from '../customer/SportFilterBar';
 import { ChangeCourtModal } from './ChangeCourtModal';
 import { CheckInModal } from './CheckInModal';
 import { CollectPaymentModal } from './CollectPaymentModal';
+import { ManagerConfirmDepositModal } from './ManagerConfirmDepositModal';
+import { BookingAuditLogsModal } from './BookingAuditLogsModal';
+import { ZaloNotificationModal } from '../common/ZaloNotificationModal';
 import { BookingModal } from '../customer/BookingModal';
 import {
   Activity,
@@ -21,6 +24,7 @@ import {
   LogOut,
   QrCode,
   Calendar,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
@@ -41,6 +45,9 @@ export const ManagerDashboard: React.FC = () => {
   const [selectedBookingSummary, setSelectedBookingSummary] = useState<Booking | null>(null);
   const [bookingForCheckInModal, setBookingForCheckInModal] = useState<Booking | null>(null);
   const [bookingForCollectModal, setBookingForCollectModal] = useState<Booking | null>(null);
+  const [bookingForDepositModal, setBookingForDepositModal] = useState<Booking | null>(null);
+  const [bookingForAuditModal, setBookingForAuditModal] = useState<Booking | null>(null);
+  const [zaloNotificationData, setZaloNotificationData] = useState<any | null>(null);
   const [quickBookingSlot, setQuickBookingSlot] = useState<{ court: Court; startTime: string; endTime: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [checkInCodeInput, setCheckInCodeInput] = useState('');
@@ -371,7 +378,22 @@ export const ManagerDashboard: React.FC = () => {
 
               {/* Operations: Check-in, Thu tiền còn lại, Đổi sân, Trả sân, Hủy đơn */}
               <div className="space-y-2 pt-1">
-                {selectedBookingSummary.checkInStatus === 'not_checked_in' && (
+                {/* Xác nhận cọc hộ khách */}
+                {selectedBookingSummary.paymentStatus === 'deposit_pending' && (
+                  <button
+                    onClick={() => {
+                      const b = selectedBookingSummary;
+                      setSelectedBookingSummary(null);
+                      setBookingForDepositModal(b);
+                    }}
+                    className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Xác Nhận Đã Thu Cọc Tại Quầy ({formatVND(selectedBookingSummary.depositAmount)})</span>
+                  </button>
+                )}
+
+                {selectedBookingSummary.checkInStatus === 'not_checked_in' && selectedBookingSummary.paymentStatus !== 'deposit_pending' && (
                   <button
                     onClick={() => {
                       const b = selectedBookingSummary;
@@ -381,39 +403,39 @@ export const ManagerDashboard: React.FC = () => {
                     className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Check-In & Thu Tiền Còn Lại ({formatVND(selectedBookingSummary.remainingAmount)})</span>
+                    <span>Xác Nhận Check-In & Nhận Sân (Không thu tiền)</span>
                   </button>
                 )}
 
-                {/* If already checked-in but still owes remaining balance */}
-                {selectedBookingSummary.checkInStatus === 'checked_in' && selectedBookingSummary.remainingAmount > 0 && (
+                {/* Check-Out & Tất toán số tiền còn lại */}
+                {selectedBookingSummary.checkInStatus === 'checked_in' && (
                   <button
                     onClick={() => {
                       const b = selectedBookingSummary;
                       setSelectedBookingSummary(null);
                       setBookingForCollectModal(b);
                     }}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <DollarSign className="w-4 h-4" />
-                    <span>Thu Tiền Còn Lại ({formatVND(selectedBookingSummary.remainingAmount)}) - Tiền Mặt / CK</span>
+                    <LogOut className="w-4 h-4" />
+                    <span>
+                      Check-Out & Tất Toán Tiền Sân {selectedBookingSummary.remainingAmount > 0 ? `(${formatVND(selectedBookingSummary.remainingAmount)})` : '(Đã thanh toán đủ)'}
+                    </span>
                   </button>
                 )}
 
-                {selectedBookingSummary.checkInStatus === 'checked_in' && (
-                  <button
-                    onClick={() => {
-                      if (confirm('Xác nhận khách đã trả sân và hoàn tất ca thi đấu?')) {
-                        checkOutBooking(selectedBookingSummary.id);
-                        setSelectedBookingSummary(null);
-                      }
-                    }}
-                    className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Check-Out (Khách Trả Sân)</span>
-                  </button>
-                )}
+                {/* View Audit Logs & Invoice */}
+                <button
+                  onClick={() => {
+                    const b = selectedBookingSummary;
+                    setSelectedBookingSummary(null);
+                    setBookingForAuditModal(b);
+                  }}
+                  className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer text-xs"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Xem Nhật Ký Kiểm Toán & Lịch Sử Giao Dịch</span>
+                </button>
 
                 {/* Change Court button */}
                 <button
@@ -458,16 +480,38 @@ export const ManagerDashboard: React.FC = () => {
         />
       )}
 
-      {/* Collect Remaining Payment Modal */}
+      {/* UC02: Collect Remaining Payment Modal */}
       {bookingForCollectModal && (
         <CollectPaymentModal
           booking={bookingForCollectModal}
           isOpen={!!bookingForCollectModal}
           onClose={() => setBookingForCollectModal(null)}
-          onSuccess={(method, amount) => {
-            alert(`Đã thu thành công ${formatVND(amount)} (${method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})!`);
+          onSuccess={(invoice) => {
+            alert(`Đã thu thành công ${formatVND(invoice.remainingPaid)} và khóa hóa đơn ${invoice.invoiceId} vĩnh viễn (BR-03)!`);
             setBookingForCollectModal(null);
           }}
+        />
+      )}
+
+      {/* UC01 A1: Manager Confirm Deposit Modal */}
+      {bookingForDepositModal && (
+        <ManagerConfirmDepositModal
+          booking={bookingForDepositModal}
+          isOpen={true}
+          onClose={() => setBookingForDepositModal(null)}
+          onSuccess={(updated) => {
+            alert(`Đã xác nhận thu cọc thành công cho đơn ${updated.id}! Hệ thống đã gửi tin Zalo ZNS và ghi log BR-03.`);
+            setBookingForDepositModal(null);
+          }}
+        />
+      )}
+
+      {/* Audit Logs Modal (BR-03) */}
+      {bookingForAuditModal && (
+        <BookingAuditLogsModal
+          booking={bookingForAuditModal}
+          isOpen={true}
+          onClose={() => setBookingForAuditModal(null)}
         />
       )}
 

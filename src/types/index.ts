@@ -22,6 +22,42 @@ export type PaymentStatus = 'deposit_pending' | 'deposited' | 'fully_paid' | 'ca
 export type CheckInStatus = 'not_checked_in' | 'checked_in' | 'checked_out' | 'cancelled';
 export type PaymentMethod = 'vietqr' | 'momo' | 'cash' | 'bank_transfer';
 
+export interface BookingServiceItem {
+  id: string;
+  name: string;
+  category: 'drink' | 'equipment' | 'service';
+  price: number;
+  quantity: number;
+}
+
+export interface BookingAuditLog {
+  id: string;
+  timestamp: string;
+  actorRole: 'customer' | 'manager' | 'system';
+  actorName: string;
+  action: 'create_booking' | 'deposit_customer_paid' | 'deposit_manager_confirmed' | 'deposit_expired' | 'cancel' | 'check_in' | 'change_court' | 'service_added' | 'final_payment_paid';
+  amount?: number;
+  paymentMethod?: string;
+  note?: string;
+}
+
+export interface BookingInvoice {
+  invoiceId: string;
+  bookingId: string;
+  issuedAt: string;
+  courtFee: number;
+  servicesFee: number;
+  depositPaid: number;
+  remainingPaid: number;
+  totalCollected: number;
+  paymentMethod: PaymentMethod;
+  collectedBy: string;
+  services: BookingServiceItem[];
+  isLocked: boolean; // BR-PAY-10: Hóa đơn dạng Web không thể chỉnh sửa sau khi khóa
+  status: 'Paid' | 'Unpaid'; // UC-17: Cập nhật Invoice sang Paid
+  discrepancyNote?: string; // UC-17 A2: Ghi chú xử lý chênh lệch dư/thiếu tại quầy (BR-PAY-09)
+}
+
 export interface Booking {
   id: string;
   courtId: string;
@@ -46,6 +82,18 @@ export interface Booking {
   note?: string;
   createdByRole: 'customer' | 'manager';
   createdAt: string;
+  depositExpiresAt?: string; // 10 minutes limit for deposit
+  depositPaidAt?: string;
+  depositCollector?: string;
+  services?: BookingServiceItem[];
+  auditLogs?: BookingAuditLog[];
+  invoice?: BookingInvoice;
+  zaloNotification?: {
+    sent: boolean;
+    sentAt: string;
+    recipientPhone: string;
+    content: string;
+  };
   checkedInAt?: string;
   checkedOutAt?: string;
 }
@@ -58,6 +106,9 @@ export interface CustomerProfile {
   totalBookings: number;
   totalSpent: number;
   isVip?: boolean;
+  isLocked?: boolean; // Khóa / mở khóa khách hàng
+  lockedReason?: string; // Lý do khóa khách
+  lockedAt?: string; // Thời điểm khóa
   notes?: string;
   createdAt: string;
 }
@@ -75,4 +126,18 @@ export interface FacilitySettings {
   bankName: string;
   bankAccount: string;
   bankAccountName: string;
+}
+
+export interface PaymentSuccessNotification {
+  id: string;
+  bookingId: string;
+  customerName: string;
+  customerPhone: string;
+  courtName: string;
+  title: string;
+  message: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  type: 'deposit' | 'settlement' | 'full';
+  timestamp: string;
 }

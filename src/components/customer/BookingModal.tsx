@@ -4,7 +4,8 @@ import { Court } from '../../types';
 import { formatVND, formatDateVN, calculateCourtPrice, getSportDetails } from '../../utils/formatters';
 import { QrCodeSvg } from '../common/QrCodeSvg';
 import { CourtVisualBadge } from '../common/CourtVisualBadge';
-import { X, CheckCircle, Copy, AlertTriangle, ShieldCheck, ArrowRight, ArrowLeft, Phone, Calendar, Clock, DollarSign, Sparkles, Banknote, CreditCard } from 'lucide-react';
+import { ZaloNotificationModal } from '../common/ZaloNotificationModal';
+import { X, CheckCircle, Copy, AlertTriangle, ShieldCheck, ArrowRight, ArrowLeft, Phone, Calendar, Clock, DollarSign, Sparkles, Banknote, CreditCard, MessageSquare, RefreshCw, XCircle, Lock, Unlock } from 'lucide-react';
 
 interface BookingModalProps {
   court: Court;
@@ -27,16 +28,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     createBooking,
     settings,
     customerPhone: defaultPhone,
-    customerName: defaultName
+    customerName: defaultName,
+    customers,
+    unlockCustomer
   } = useApp();
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Slot & Time, 2: Customer Info, 3: VietQR Payment, 4: Success
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Slot & Time, 2: Customer Info (manager only), 3: VietQR Payment, 4: Success
   const [startTime, setStartTime] = useState(initialStartTime);
   const [durationHours, setDurationHours] = useState(1);
   
-  // Contact info
-  const [custName, setCustName] = useState(role === 'customer' ? defaultName : '');
-  const [custPhone, setCustPhone] = useState(role === 'customer' ? defaultPhone : '');
+  // Contact info (Auto-filled from logged-in customer for customer flow)
+  const [custName, setCustName] = useState(defaultName || (role === 'customer' ? 'Khách Hàng' : ''));
+  const [custPhone, setCustPhone] = useState(defaultPhone || (role === 'customer' ? '0912345678' : ''));
   const [custEmail, setCustEmail] = useState('');
   const [note, setNote] = useState('');
 
@@ -52,6 +55,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [createdQrPass, setCreatedQrPass] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showZaloModal, setShowZaloModal] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(600); // 10 minutes limit (UC01 E2)
 
   // Compute end time based on start time + duration
   const [startH, startM] = startTime.split(':').map(Number);
@@ -59,6 +64,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const endH = Math.floor(endMinutesTotal / 60);
   const endM = endMinutesTotal % 60;
   const computedEndTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+
+  // Check customer lock status
+  const activeCustomerPhone = (role === 'customer' ? (custPhone || defaultPhone) : custPhone).trim();
+  const currentCustomerProfile = customers.find(c => c.phone.trim() === activeCustomerPhone);
+  const isCurrentCustomerLocked = !!currentCustomerProfile?.isLocked;
 
   // Price calculations
   const { totalAmount, isPeak } = calculateCourtPrice(court, startTime, computedEndTime, selectedDate);
@@ -71,6 +81,25 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   const sportMeta = getSportDetails(court.sport);
 
+  // UC01 E2: Countdown 10 minutes for deposit payment
+  React.useEffect(() => {
+    if (step !== 3) return;
+    const interval = setInterval(() => {
+      setCountdownSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  const countdownM = Math.floor(countdownSeconds / 60);
+  const countdownS = countdownSeconds % 60;
+  const countdownFormatted = `${countdownM.toString().padStart(2, '0')}:${countdownS.toString().padStart(2, '0')}`;
+
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -79,8 +108,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!custName.trim() || !custPhone.trim()) {
-      alert('Vui lòng nhập họ tên và số điện thoại liên hệ');
+    if (!custPhone.trim()) {
+      alert('Vui lòng nhập số điện thoại khách hàng');
+      return;
+    }
+    if (!custName.trim()) {
+      alert('Vui lòng nhập họ tên khách hàng');
       return;
     }
     setStep(3);
@@ -90,12 +123,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     setIsProcessingPayment(true);
     setTimeout(() => {
       const finalPaymentMethod = effectiveDepositAmount === 0 ? 'cash' : (depositPaymentMethod === 'cash' ? 'cash' : 'vietqr');
+      const finalCustPhone = (role === 'customer' ? (defaultPhone || custPhone) : custPhone).trim() || '0912345678';
+      const finalCustName = (role === 'customer' ? (defaultName || custName) : custName).trim() || 'Khách Hàng';
+
       const newBooking = createBooking({
         courtId: court.id,
         courtName: court.name,
         sport: court.sport,
-        customerName: custName,
-        customerPhone: custPhone,
+        customerName: finalCustName,
+        customerPhone: finalCustPhone,
         customerEmail: custEmail || undefined,
         date: selectedDate,
         startTime,
@@ -141,20 +177,36 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         {/* Step Wizard Progress Bar */}
         {step < 4 && (
           <div className="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
-            <div className={`flex items-center gap-1.5 font-semibold ${step >= 1 ? 'text-emerald-700' : 'text-slate-400'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 1 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>1</span>
-              <span>Chọn Giờ & Cọc</span>
-            </div>
-            <div className="w-8 h-px bg-slate-300"></div>
-            <div className={`flex items-center gap-1.5 font-semibold ${step >= 2 ? 'text-emerald-700' : 'text-slate-400'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 2 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>2</span>
-              <span>Thông Tin Khách</span>
-            </div>
-            <div className="w-8 h-px bg-slate-300"></div>
-            <div className={`flex items-center gap-1.5 font-semibold ${step >= 3 ? 'text-emerald-700' : 'text-slate-400'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 3 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>3</span>
-              <span>Thanh Toán Cọc</span>
-            </div>
+            {role === 'customer' ? (
+              <>
+                <div className={`flex items-center gap-1.5 font-semibold ${step >= 1 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 1 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>1</span>
+                  <span>Chọn Giờ & Sân</span>
+                </div>
+                <div className="flex-1 max-w-[100px] h-px bg-slate-300 mx-2"></div>
+                <div className={`flex items-center gap-1.5 font-semibold ${step >= 3 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 3 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>2</span>
+                  <span>Thanh Toán Tiền Cọc</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={`flex items-center gap-1.5 font-semibold ${step >= 1 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 1 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>1</span>
+                  <span>Chọn Giờ & Cọc</span>
+                </div>
+                <div className="w-8 h-px bg-slate-300"></div>
+                <div className={`flex items-center gap-1.5 font-semibold ${step >= 2 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 2 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>2</span>
+                  <span>Thông Tin Khách</span>
+                </div>
+                <div className="w-8 h-px bg-slate-300"></div>
+                <div className={`flex items-center gap-1.5 font-semibold ${step >= 3 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${step >= 3 ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600'}`}>3</span>
+                  <span>Thanh Toán Cọc</span>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -306,26 +358,118 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <span className="font-mono text-base font-extrabold">{formatVND(effectiveDepositAmount)}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-400 text-[11px]">
-                  <span>Số tiền còn lại khi check-in tại quầy:</span>
+                  <span>Số tiền còn lại khi check-out (trả sân):</span>
                   <span className="font-mono">{formatVND(effectiveRemainingAmount)}</span>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Tiếp tục: Nhập thông tin khách</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {/* Khách hàng: Hiển thị thông tin tài khoản tự động định danh (không cần nhập lại) */}
+              {role === 'customer' && (
+                <div className="space-y-3">
+                  <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
+                    isCurrentCustomerLocked
+                      ? 'bg-rose-50 border-rose-300'
+                      : 'bg-emerald-50/80 border-emerald-200'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg text-white flex items-center justify-center shrink-0 shadow-xs ${
+                        isCurrentCustomerLocked ? 'bg-rose-600' : 'bg-emerald-600'
+                      }`}>
+                        {isCurrentCustomerLocked ? <Lock className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                          <span>Số điện thoại: <strong className="font-mono text-xs">{custPhone || defaultPhone}</strong></span>
+                          {isCurrentCustomerLocked ? (
+                            <span className="text-[10px] bg-rose-100 text-rose-800 font-bold px-2 py-0.2 rounded-full border border-rose-200">
+                              Đang bị khóa
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.2 rounded-full">
+                              Đã đăng nhập
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-slate-600 text-[11px] mt-0.5">
+                          Khách hàng: <strong>{custName || defaultName || 'Khách Hàng'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isCurrentCustomerLocked && (
+                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                        <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Tài khoản của quý khách đang bị tạm khóa đặt sân</span>
+                      </div>
+                      <p className="text-[11px] text-rose-800">
+                        Lý do: <span className="font-semibold underline decoration-rose-400">{currentCustomerProfile?.lockedReason || 'Vi phạm chính sách đặt sân'}</span>
+                      </p>
+                      <p className="text-[11px] text-rose-700">
+                        Vui lòng liên hệ Hotline chủ sân <strong className="font-mono">{settings.hotline}</strong> để được hỗ trợ mở khóa tài khoản.
+                      </p>
+                    </div>
+                  )}
+
+                  {!isCurrentCustomerLocked && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Ghi Chú Đặt Sân (tùy chọn)
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Ví dụ: Mượn 2 áo bib, chuẩn bị sẵn nước suối, bóng thi đấu..."
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                      ></textarea>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Nút Chuyển Bước: Luồng khách hàng chuyển thẳng sang Bước Thanh Toán Cọc */}
+              {role === 'customer' ? (
+                <button
+                  type="button"
+                  disabled={isCurrentCustomerLocked}
+                  onClick={() => setStep(3)}
+                  className={`w-full py-3 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
+                    isCurrentCustomerLocked
+                      ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                      : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                  }`}
+                >
+                  {isCurrentCustomerLocked ? (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Tài khoản đang bị khóa - Không thể đặt sân</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Tiếp tục: Thanh toán cọc ({formatVND(effectiveDepositAmount)})</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Tiếp tục: Nhập thông tin khách</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
 
-          {/* STEP 2: CUSTOMER CONTACT INFO */}
+          {/* STEP 2: CUSTOMER CONTACT INFO (Chỉ dành cho Quản lý sân khi tạo hộ khách) */}
           {step === 2 && (
             <form onSubmit={handleProceedToPayment} className="space-y-4">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between items-center">
                 <div>
                   <span className="font-semibold text-slate-900">{court.name}</span>
                   <div className="text-slate-500">{formatDateVN(selectedDate)} · {startTime} - {computedEndTime}</div>
@@ -336,9 +480,69 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
+              {/* 1. SỐ ĐIỆN THOẠI ĐẨY LÊN TRÊN ĐẦU */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Họ và Tên Khách Hàng <span className="text-red-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Số Điện Thoại Khách Hàng <span className="text-red-500">*</span></span>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Định danh chính
+                  </span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ví dụ: 0912345678"
+                    value={custPhone}
+                    onChange={(e) => {
+                      const phoneVal = e.target.value;
+                      setCustPhone(phoneVal);
+                      // Tự động tìm kiếm hồ sơ khách hàng theo SĐT chính
+                      const matched = customers.find(c => c.phone.trim() === phoneVal.trim());
+                      if (matched) {
+                        setCustName(matched.name);
+                        if (matched.email && !custEmail) {
+                          setCustEmail(matched.email);
+                        }
+                      }
+                    }}
+                    className="w-full pl-9 pr-3 py-2 text-sm font-mono font-semibold rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Định danh khách theo SĐT, tự động tải hồ sơ nếu đã từng đặt sân.
+                </span>
+              </div>
+
+              {/* Cảnh báo nếu khách này đang bị khóa */}
+              {isCurrentCustomerLocked && currentCustomerProfile && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-900 font-bold">
+                      <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>Khách hàng này đang bị khóa đặt sân!</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => unlockCustomer(currentCustomerProfile.phone)}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                    >
+                      <Unlock className="w-3 h-3" />
+                      <span>Mở khóa ngay</span>
+                    </button>
+                  </div>
+                  <p className="text-rose-800 text-[11px]">
+                    Lý do khóa: <span className="font-semibold underline decoration-rose-400">{currentCustomerProfile.lockedReason}</span>
+                  </p>
+                </div>
+              )}
+
+              {/* 2. HỌ VÀ TÊN Ở PHÍA DƯỚI (PHỤ) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Họ và Tên Khách Hàng <span className="text-red-500">*</span></span>
+                  <span className="text-[10px] text-slate-400">Thông tin phụ</span>
                 </label>
                 <input
                   type="text"
@@ -347,20 +551,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   value={custName}
                   onChange={(e) => setCustName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Số Điện Thoại Nhận Mã Vé <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="Ví dụ: 0912345678"
-                  value={custPhone}
-                  onChange={(e) => setCustPhone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -413,6 +603,30 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           {/* STEP 3: DEPOSIT PAYMENT (TIỀN MẶT HOẶC CHUYỂN KHOẢN) */}
           {step === 3 && (
             <div className="space-y-4">
+              {/* UC01 E2: Countdown 10 minutes warning banner */}
+              {effectiveDepositAmount > 0 && (
+                <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                  countdownSeconds <= 120
+                    ? 'bg-red-50 border-red-300 text-red-900'
+                    : 'bg-amber-50 border-amber-300 text-amber-900'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                    <div>
+                      <span className="font-bold">Thời hạn giữ chỗ & thanh toán cọc:</span>
+                      <p className="text-[10px] opacity-80">
+                        {countdownSeconds <= 0
+                          ? 'Đã hết thời gian giữ chỗ. Hệ thống tự động giải phóng lịch sân.'
+                          : 'Hệ thống tự động hủy đơn sau 10 phút nếu chưa hoàn tất thanh toán cọc.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="font-mono text-base font-extrabold">
+                    {countdownFormatted}
+                  </div>
+                </div>
+              )}
+
               {effectiveDepositAmount === 0 ? (
                 /* 0% Deposit: Free direct booking */
                 <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-3">
@@ -576,7 +790,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                           <span className="font-bold text-slate-900">{custName} ({custPhone})</span>
                         </div>
                         <div className="flex justify-between items-center text-slate-600">
-                          <span>Số tiền còn lại khi nhận sân:</span>
+                          <span>Số tiền còn lại khi kết thúc ca chơi (check-out):</span>
                           <span className="font-mono font-bold text-slate-700">{formatVND(effectiveRemainingAmount)}</span>
                         </div>
                       </div>
@@ -595,21 +809,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(role === 'customer' ? 1 : 2)}
                   className="flex-1 py-2.5 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Sửa thông tin</span>
+                  <span>{role === 'customer' ? 'Chọn lại giờ & sân' : 'Sửa thông tin khách'}</span>
                 </button>
 
                 <button
                   type="button"
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || (effectiveDepositAmount > 0 && countdownSeconds <= 0)}
                   onClick={handleConfirmPayment}
                   className="flex-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isProcessingPayment ? (
-                    <span>Đang hoàn tất đơn đặt...</span>
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Đang nhận tín hiệu Webhook/IPN...</span>
+                    </span>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
@@ -617,13 +834,34 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                         {effectiveDepositAmount === 0
                           ? 'Xác Nhận Đặt Chỗ Ngay'
                           : depositPaymentMethod === 'cash'
-                          ? `Xác Nhận Đã Thu/Trả Tiền Mặt (${formatVND(effectiveDepositAmount)})`
-                          : `Xác Nhận Đã Chuyển Khoản (${formatVND(effectiveDepositAmount)})`}
+                          ? `Xác Nhận Nộp Tiền Mặt (${formatVND(effectiveDepositAmount)})`
+                          : `Tôi Đã Chuyển Khoản Thành Công`}
                       </span>
                     </>
                   )}
                 </button>
               </div>
+
+              {/* UC01 E1: Khách hủy giao dịch trên màn hình QR */}
+              {effectiveDepositAmount > 0 && (
+                <div className="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('Hủy giao dịch thanh toán cọc và đóng đơn đặt sân?')) {
+                        onClose();
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-800 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Hủy giao dịch</span>
+                  </button>
+                  <span className="text-[10px] text-slate-400">
+                    Cổng thanh toán tự động xác nhận IPN 24/7
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -686,6 +924,30 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
+              {/* UC01 Step 8: Zalo Notification Service */}
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-left flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-[#0068FF] text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-xs">
+                    Z
+                  </div>
+                  <div>
+                    <strong className="text-xs text-blue-900 block font-bold">
+                      Đã gửi thông báo đặt sân thành công qua Zalo ZNS (Bước 8)
+                    </strong>
+                    <span className="text-[11px] text-blue-800">
+                      Tin nhắn xác nhận đặt cọc và thẻ SportPass đã được tự động gửi đến SĐT <strong>{custPhone}</strong>.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowZaloModal(true)}
+                  className="px-2.5 py-1.5 bg-white hover:bg-blue-100 text-[#0068FF] border border-blue-300 rounded-lg text-[11px] font-bold shrink-0 transition-colors cursor-pointer shadow-2xs"
+                >
+                  Xem tin Zalo
+                </button>
+              </div>
+
               {/* Exchange / Reschedule Notice */}
               <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-left text-xs text-amber-950 flex items-start gap-2.5">
                 <Phone className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
@@ -714,6 +976,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Simulated Zalo ZNS Notification Modal */}
+      {showZaloModal && (
+        <ZaloNotificationModal
+          isOpen={true}
+          onClose={() => setShowZaloModal(false)}
+          recipientPhone={custPhone}
+          bookingId={createdBookingId}
+          courtName={court.name}
+          dateTime={`${formatDateVN(selectedDate)} ${startTime}-${computedEndTime}`}
+          depositAmount={effectiveDepositAmount}
+          remainingAmount={effectiveRemainingAmount}
+          qrPassCode={createdQrPass}
+          paymentMethod={depositPaymentMethod === 'cash' ? 'Tiền mặt' : 'VietQR'}
+        />
+      )}
     </div>
   );
 };

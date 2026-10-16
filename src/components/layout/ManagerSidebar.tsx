@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import {
   Calendar,
   ClipboardList,
+  Receipt,
   Layers,
   Users,
   UserCheck,
@@ -39,6 +40,12 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
       label: 'Danh sách đơn',
       icon: ClipboardList,
       desc: 'Đổi sân & quản lý cọc'
+    },
+    {
+      id: 'manager_invoices',
+      label: 'Hóa đơn & Giao dịch',
+      icon: Receipt,
+      desc: 'Sổ quỹ & hóa đơn đã xuất'
     },
     {
       id: 'manager_courts',
