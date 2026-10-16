@@ -8,9 +8,18 @@ import { BookingModal } from './BookingModal';
 import { LayoutGrid, Clock } from 'lucide-react';
 
 export const AllCourtsScheduleView: React.FC = () => {
-  const { courts, settings } = useApp();
+  const { courts, settings, currentUser, openAuthModal } = useApp();
   const [selectedSlot, setSelectedSlot] = useState<{ court: Court; startTime: string; endTime: string } | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
+
+  const handleSelectSlot = (court: Court, startTime: string, endTime: string) => {
+    // User Requirement: "Khách hàng muốn đặt sân trực tuyến buộc phải đăng nhập"
+    if (!currentUser) {
+      openAuthModal('Vui lòng đăng nhập hoặc đăng ký tài khoản để thực hiện đặt sân trực tuyến!');
+      return;
+    }
+    setSelectedSlot({ court, startTime, endTime });
+  };
 
   return (
     <div className="space-y-6">
@@ -55,18 +64,14 @@ export const AllCourtsScheduleView: React.FC = () => {
       {/* Main Matrix or Cards */}
       {viewMode === 'grid' ? (
         <TimeGridSchedule
-          onSelectSlot={(court, startTime, endTime) => {
-            setSelectedSlot({ court, startTime, endTime });
-          }}
+          onSelectSlot={handleSelectSlot}
           onViewBookingDetails={(booking) => {
             alert(`Khung giờ này đã được đặt. Vui lòng chọn ô màu xanh còn trống hoặc gọi hotline ${settings.hotline}.`);
           }}
         />
       ) : (
         <VisualCourtCardsView
-          onSelectSlot={(court, startTime, endTime) => {
-            setSelectedSlot({ court, startTime, endTime });
-          }}
+          onSelectSlot={handleSelectSlot}
         />
       )}
 

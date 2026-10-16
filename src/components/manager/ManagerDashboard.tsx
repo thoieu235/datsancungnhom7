@@ -11,10 +11,8 @@ import { BookingAuditLogsModal } from './BookingAuditLogsModal';
 import { ZaloNotificationModal } from '../common/ZaloNotificationModal';
 import { BookingModal } from '../customer/BookingModal';
 import {
-  Activity,
   CheckCircle2,
   Clock,
-  DollarSign,
   PlusCircle,
   RefreshCw,
   Search,
@@ -51,14 +49,6 @@ export const ManagerDashboard: React.FC = () => {
   const [quickBookingSlot, setQuickBookingSlot] = useState<{ court: Court; startTime: string; endTime: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [checkInCodeInput, setCheckInCodeInput] = useState('');
-
-  // Daily statistics
-  const todayBookings = bookings.filter(b => b.date === selectedDate && b.paymentStatus !== 'cancelled');
-  const activePlayingCount = todayBookings.filter(b => b.checkInStatus === 'checked_in').length;
-  const depositCollected = todayBookings.reduce((sum, b) => sum + b.depositAmount, 0);
-  const remainingToCollect = todayBookings
-    .filter(b => b.checkInStatus === 'not_checked_in' || b.paymentStatus === 'deposited')
-    .reduce((sum, b) => sum + b.remainingAmount, 0);
 
   const filteredCourts = courts.filter(c => c.sport === selectedSport);
 
@@ -124,69 +114,6 @@ export const ManagerDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* KPI Stats Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Đang Chơi Trên Sân
-            </span>
-            <div className="text-2xl font-black font-mono text-amber-700 mt-1">
-              {activePlayingCount} / {courts.length} Sân
-            </div>
-            <span className="text-[11px] text-slate-400">Đã check-in đang sử dụng</span>
-          </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-            <Activity className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Tổng Lịch Hôm Nay
-            </span>
-            <div className="text-2xl font-black font-mono text-slate-900 mt-1">
-              {todayBookings.length} Lượt
-            </div>
-            <span className="text-[11px] text-slate-400">{formatDateVN(selectedDate)}</span>
-          </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-            <Calendar className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Doanh Thu Cọc (30%+)
-            </span>
-            <div className="text-2xl font-black font-mono text-emerald-700 mt-1">
-              {formatVND(depositCollected)}
-            </div>
-            <span className="text-[11px] text-slate-400">Đã nhận về tài khoản</span>
-          </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-            <DollarSign className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Cần Thu Nốt Tại Quầy
-            </span>
-            <div className="text-2xl font-black font-mono text-amber-800 mt-1">
-              {formatVND(remainingToCollect)}
-            </div>
-            <span className="text-[11px] text-slate-400">70% còn lại khi khách đến</span>
-          </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center">
-            <UserCheck className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
       {/* Quick Action & QR Pass Search Bar */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Quick Check-in Scan Form */}

@@ -24,11 +24,22 @@ import {
   ShieldCheck,
   CreditCard,
   MessageSquare,
-  FileText
+  FileText,
+  ArrowRight
 } from 'lucide-react';
 
 export const MyBookingsHistory: React.FC = () => {
-  const { bookings, customerPhone, setCustomerPhone, customerName, setCustomerName, settings, cancelDepositPending } = useApp();
+  const {
+    bookings,
+    customerPhone,
+    setCustomerPhone,
+    customerName,
+    setCustomerName,
+    settings,
+    cancelDepositPending,
+    currentUser,
+    openAuthModal
+  } = useApp();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +47,32 @@ export const MyBookingsHistory: React.FC = () => {
   const [selectedPassBooking, setSelectedPassBooking] = useState<Booking | null>(null);
   const [selectedPayBooking, setSelectedPayBooking] = useState<Booking | null>(null);
   const [zaloNotificationData, setZaloNotificationData] = useState<any | null>(null);
-  const [phoneInput, setPhoneInput] = useState(customerPhone);
+  const [phoneInput, setPhoneInput] = useState(currentUser?.phone || customerPhone);
+
+  // User Requirement: "Nếu muốn các thao tác khác đòi hỏi thông tin khách hàng thì hệ thống sẽ yêu cầu đăng nhập để thực hiện thao tác"
+  if (!currentUser) {
+    return (
+      <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 text-center max-w-lg mx-auto shadow-sm my-8 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl font-black">
+          <QrCode className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">
+          Tra Cứu Vé &amp; Lịch Sử Đặt Sân
+        </h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Để bảo vệ quyền riêng tư và thông tin cá nhân, bạn cần đăng nhập tài khoản số điện thoại để xem danh sách vé đã đặt, mã QR nhận sân và hóa đơn.
+        </p>
+        <button
+          type="button"
+          onClick={() => openAuthModal('Vui lòng đăng nhập để xem danh sách vé và lịch sử đặt sân của bạn!')}
+          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+        >
+          <span>Đăng Nhập Ngay</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   // Live timer tick for deposit countdown
   const [, setTick] = useState(0);
@@ -120,32 +156,6 @@ export const MyBookingsHistory: React.FC = () => {
             Tra Cứu
           </button>
         </form>
-      </div>
-
-      {/* Summary KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs text-slate-500">Tổng lượt đặt</span>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">{myBookings.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs text-slate-500">Chờ nộp cọc (10p)</span>
-          <div className="text-xl font-bold font-mono text-amber-600 mt-1">
-            {myBookings.filter(b => b.paymentStatus === 'deposit_pending').length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs text-slate-500">Chờ nhận sân</span>
-          <div className="text-xl font-bold font-mono text-emerald-700 mt-1">
-            {myBookings.filter(b => b.checkInStatus === 'not_checked_in' && b.paymentStatus === 'deposited').length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs text-slate-500">Cần trả tại quầy</span>
-          <div className="text-xl font-bold font-mono text-amber-700 mt-1">
-            {formatVND(myBookings.filter(b => b.checkInStatus !== 'checked_out' && b.paymentStatus !== 'cancelled').reduce((sum, b) => sum + b.remainingAmount, 0))}
-          </div>
-        </div>
       </div>
 
       {/* Filter Tabs */}

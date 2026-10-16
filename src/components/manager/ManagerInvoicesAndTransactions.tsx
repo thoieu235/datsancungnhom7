@@ -148,31 +148,6 @@ export const ManagerInvoicesAndTransactions: React.FC = () => {
     return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [bookings]);
 
-  // 3. Financial Metrics Calculations
-  const metrics = useMemo(() => {
-    let totalCollected = 0;
-    let vietqrTotal = 0;
-    let cashTotal = 0;
-
-    allTransactions.forEach(tx => {
-      totalCollected += tx.amount;
-      const m = tx.paymentMethod.toLowerCase();
-      if (m.includes('vietqr') || m.includes('chuyển') || m.includes('bank')) {
-        vietqrTotal += tx.amount;
-      } else {
-        cashTotal += tx.amount;
-      }
-    });
-
-    return {
-      totalRevenue: totalCollected,
-      vietqrRevenue: vietqrTotal,
-      cashRevenue: cashTotal,
-      totalInvoicesCount: allInvoices.length,
-      totalTransactionsCount: allTransactions.length
-    };
-  }, [allTransactions, allInvoices]);
-
   // 4. Filtered Invoices
   const filteredInvoices = useMemo(() => {
     return allInvoices.filter(({ invoice, booking }) => {
@@ -342,75 +317,6 @@ export const ManagerInvoicesAndTransactions: React.FC = () => {
             <Printer className="w-4 h-4" />
             <span>In Báo Cáo</span>
           </button>
-        </div>
-      </div>
-
-      {/* KPI Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Tổng doanh thu thực thu */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold text-slate-500">Tổng Thực Thu (Cọc + Tất toán)</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-emerald-700">
-            {formatVND(metrics.totalRevenue)}
-          </div>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-800">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>{metrics.totalTransactionsCount} lượt giao dịch đã ghi nhận</span>
-          </div>
-        </div>
-
-        {/* Card 2: Chuyển khoản VietQR */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold text-slate-500">Thu Qua Chuyển Khoản VietQR</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-blue-700">
-            {formatVND(metrics.vietqrRevenue)}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500">
-            Chiếm {metrics.totalRevenue > 0 ? Math.round((metrics.vietqrRevenue / metrics.totalRevenue) * 100) : 0}% tổng dòng tiền
-          </div>
-        </div>
-
-        {/* Card 3: Tiền mặt tại quầy */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold text-slate-500">Thu Tiền Mặt Tại Quầy</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Banknote className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-amber-800">
-            {formatVND(metrics.cashRevenue)}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500">
-            Chiếm {metrics.totalRevenue > 0 ? Math.round((metrics.cashRevenue / metrics.totalRevenue) * 100) : 0}% tổng dòng tiền
-          </div>
-        </div>
-
-        {/* Card 4: Tổng số hóa đơn */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-semibold text-slate-500">Hóa Đơn Đã Khóa (Paid)</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Lock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black font-mono text-purple-900">
-            {metrics.totalInvoicesCount}
-          </div>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-purple-800 font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Đã khóa bất biến · Chuẩn kế toán</span>
-          </div>
         </div>
       </div>
 

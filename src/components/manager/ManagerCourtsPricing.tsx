@@ -515,7 +515,7 @@ export const ManagerCourtsPricing: React.FC = () => {
                           type="button"
                           onClick={() => handleOpenEditModal(court)}
                           className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                          title="Chỉnh sửa thông tin sân"
+                          title="Cập nhật thông tin sân"
                         >
                           <Edit className="w-3.5 h-3.5 text-slate-600" />
                           <span>Sửa</span>

@@ -8,7 +8,8 @@ interface AppContextType {
   currentUser: AuthUser | null;
   setCurrentUser: (user: AuthUser | null) => void;
   isAuthModalOpen: boolean;
-  openAuthModal: () => void;
+  authPromptMessage: string | null;
+  openAuthModal: (message?: string) => void;
   closeAuthModal: () => void;
   loginUser: (user: AuthUser) => void;
   logout: () => void;
@@ -81,14 +82,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   });
 
-  // User requirement: "Khi vào website hệ thống sẽ hiển thị yêu cầu đăng nhập bằng sđt mà mã sẽ được gửi về"
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-    return !saved;
-  });
+  // User requirement: "Khi mới vào web khách vẫn thực hiện xem được tuy nhiên nếu muốn các thao tác khác đòi hỏi thông tin khách hàng thì hệ thống sẽ yêu cầu đăng nhập để thực hiện thao tác"
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
 
-  const openAuthModal = () => setIsAuthModalOpen(true);
-  const closeAuthModal = () => setIsAuthModalOpen(false);
+  const openAuthModal = (message?: string) => {
+    setAuthPromptMessage(message || null);
+    setIsAuthModalOpen(true);
+  };
+  const closeAuthModal = () => {
+    setAuthPromptMessage(null);
+    setIsAuthModalOpen(false);
+  };
 
   const [role, setRoleState] = useState<'customer' | 'manager'>(() => {
     const savedUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
@@ -122,6 +127,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCustomerPhone(user.phone);
       setCustomerName(user.name);
     }
+    setAuthPromptMessage(null);
     setIsAuthModalOpen(false);
   };
 
@@ -130,6 +136,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState('customer');
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     localStorage.setItem(STORAGE_KEYS.ROLE, 'customer');
+    setAuthPromptMessage(null);
     setIsAuthModalOpen(true);
   };
 
@@ -860,6 +867,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         setCurrentUser,
         isAuthModalOpen,
+        authPromptMessage,
         openAuthModal,
         closeAuthModal,
         loginUser,

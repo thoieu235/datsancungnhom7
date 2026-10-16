@@ -35,26 +35,25 @@ Hệ thống quản lý và đặt sân thể thao **SportArena** (gồm 14 sân
 
 ---
 
-## 4. Hệ Thống Đăng Nhập, Đăng Ký & Đăng Xuất (Phone + OTP Verification)
-- **Hiển thị yêu cầu đăng nhập khi vào website:**
-  - Khi người dùng truy cập website lần đầu (hoặc sau khi đăng xuất), hệ thống tự động hiển thị Modal yêu cầu đăng nhập bằng số điện thoại. Người dùng có thể đăng nhập ngay hoặc bấm "Xem trước với tư cách khách vãng lai".
-- **Nhận diện và đăng ký tài khoản:**
-  - **Tài khoản Admin / Chủ sân cấp sẵn:** Hệ thống tích hợp sẵn tài khoản Quản lý với SĐT **`0988888888`** (có nút bấm điền nhanh một chạm). Khi nhập SĐT này và mã OTP, người dùng được cấp quyền Chủ sân toàn quyền (`role = 'manager'`).
-  - **Khách hàng đã có tài khoản:** Nhận diện ngay tên khách hàng, kiểm tra trạng thái khóa và gửi mã OTP 6 số.
-  - **Số điện thoại chưa tồn tại (Đăng ký mới):** Hệ thống tự động mở thêm bước nhập **Họ và tên khách hàng** (bắt buộc) và Email (tùy chọn) để hoàn tất đăng ký ngay trong luồng OTP.
-- **Cơ chế giới hạn bảo mật mã OTP:**
-  - **Tối đa 5 lần nhập sai:** Hệ thống hiển thị số lần thử còn lại `Còn X/5 lần thử`.
-  - **Thời gian chờ 1 phút 30 giây (90s):** Nếu nhập sai đủ 5 lần, hệ thống tạm khóa ô nhập OTP và kích hoạt đồng hồ đếm ngược trực tiếp từ `01:30` về `00:00`. Trạng thái khóa được lưu trong `localStorage` để ngăn chặn gian lận tải lại trang. Hết 90 giây hệ thống tự động mở lại cho người dùng thử lại.
-  - **Mã OTP Demo:** Hiển thị trực tiếp qua thông báo SMS giả lập trên màn hình, hỗ trợ nút "Điền nhanh mã" hoặc nhập mã dự phòng `686868` để kiểm thử tiện lợi.
-- **Chức năng Đăng xuất (Logout):**
-  - Tích hợp nút Đăng xuất rõ ràng trên thanh Navbar khách hàng và thanh Sidebar / Header quản lý.
-  - Khi bấm Đăng xuất, hệ thống xóa phiên làm việc và hiển thị lại hộp thoại Đăng nhập để sẵn sàng cho phiên mới.
+## 4. Hệ Thống Đăng Nhập, Đăng Ký (Giao Diện Trọng Tâm - Tinh Gọn)
+- **Giao diện tập trung 100% vào Đăng nhập & Đăng ký:**
+  - Loại bỏ hoàn toàn các cột giới thiệu hình ảnh, quảng bá ngoài lề, tập trung khung xác thực tại vị trí trung tâm trang.
+  - Hỗ trợ tab chuyển đổi rõ ràng giữa *Đăng Nhập* và *Đăng Ký Mới*.
+  - Nhập SĐT -> Tự động nhận diện tài khoản sẵn có hoặc mở ô Họ tên để đăng ký thành viên mới.
+  - Xác thực OTP 6 số, giới hạn tối đa 5 lần thử sai và đếm ngược khóa an toàn 1 phút 30 giây (90s).
+- **Luồng truy cập & Thao tác đòi hỏi thông tin khách hàng:**
+  - **Khi mới vào web:** Khách truy cập tự do xem hình ảnh sân, bảng giá, ma trận lịch trống thời gian thực mà không bị chặn.
+  - **Khi thực hiện thao tác cần định danh khách hàng:** Hệ thống yêu cầu đăng nhập ngay:
+    - Bấm chọn giờ / đặt sân trực tuyến: Chuyển hướng yêu cầu đăng nhập.
+    - Xem lịch sử vé đã đặt: Chuyển hướng yêu cầu đăng nhập.
+    - **TUYỆT ĐỐI KHÔNG CHO PHÉP KHÁCH VÃNG LAI ĐẶT TRỰC TUYẾN:** Khách đặt online bắt buộc phải đăng nhập để đảm bảo danh tính và quyền lợi lưu trữ vé.
+- **Tài khoản Admin / Chủ sân:** Số điện thoại `0988888888` (kèm nút điền nhanh một chạm) để đăng nhập quản lý toàn diện.
 
 ---
 
 ## 5. Cập Nhật Quản Lý Sân & Thêm Sân Mới (Court Management & Form Upgrades)
 - **Đổi "STT Sân" thành "Mã Sân" (`courtCode`):**
-  - Trong Modal Thêm sân mới (`CourtFormModal`) và Chỉnh sửa thông tin sân, trường số thứ tự (STT) đã được chuyển đổi thành **Mã Sân** với định dạng chuẩn chuyên nghiệp (VD: `FB-01` cho Bóng Đá, `BD-01` cho Cầu Lông, `PK-01` cho Pickleball).
+  - Trong Modal Thêm sân mới (`CourtFormModal`) và Cập nhật thông tin sân, trường số thứ tự (STT) đã được chuyển đổi thành **Mã Sân** với định dạng chuẩn chuyên nghiệp (VD: `FB-01` cho Bóng Đá, `BD-01` cho Cầu Lông, `PK-01` cho Pickleball).
   - Tự động gợi ý mã sân theo bộ môn đã chọn, hỗ trợ chuyển đổi chữ hoa tự động và kiểm tra tính duy nhất chống trùng lặp.
   - Mã sân hiển thị nổi bật trên thẻ sân (`CourtVisualBadge`), bảng ma trận lịch sân và các hóa đơn đặt sân.
 - **Thêm "Khoảng Thời Gian Bảo Trì (Nếu có)" vào thông tin sân:**
@@ -66,4 +65,14 @@ Hệ thống quản lý và đặt sân thể thao **SportArena** (gồm 14 sân
   - Bộ lọc trước đây mang tên "Phân loại" đã được chuẩn hóa đổi tên thành **"Bộ môn"** (`sportFilter`).
   - Cung cấp các tùy chọn rõ ràng: *Tất cả bộ môn*, *⚽ Bộ môn Bóng Đá*, *🏸 Bộ môn Cầu Lông*, *🎾 Bộ môn Pickleball* kèm số lượng sân cụ thể của từng môn.
   - Kết hợp đồng bộ với ô tìm kiếm tức thì theo tên sân, mã sân hoặc chất liệu bề mặt.
+
+---
+
+## 6. Gỡ Bỏ Toàn Bộ Dashboard Thống Kê Trong Toàn Hệ Thống
+- Hệ thống đã **gỡ bỏ triệt để toàn bộ các khối/dải thẻ dashboard KPI thống kê**:
+  - **Màn hình Sơ đồ sân (`ManagerDashboard`):** Gỡ bỏ 4 thẻ thống kê số sân đang đá, tổng lượt đặt, doanh thu cọc, tiền cần thu nốt.
+  - **Màn hình Hóa đơn & Sổ quỹ (`ManagerInvoicesAndTransactions`):** Gỡ bỏ 4 thẻ tổng thực thu, thu VietQR, thu tiền mặt, tổng số hóa đơn.
+  - **Màn hình Lịch sử vé (`MyBookingsHistory`):** Gỡ bỏ 4 thẻ tổng lượt đặt, chờ cọc, chờ nhận sân, tiền cần trả.
+- Giúp các giao diện vận hành hoàn toàn tinh giản, trực quan, tốc độ xử lý nhanh và chỉ tập trung vào các nghiệp vụ thao tác thực tế.
+
 

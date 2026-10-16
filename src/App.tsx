@@ -18,12 +18,23 @@ import { ManagerCustomers } from './components/manager/ManagerCustomers';
 import { ManagerInvoicesAndTransactions } from './components/manager/ManagerInvoicesAndTransactions';
 import { PaymentSuccessToast } from './components/common/PaymentSuccessToast';
 import { WebInvoiceModal } from './components/common/WebInvoiceModal';
-import { AuthModal } from './components/common/AuthModal';
+import { AuthScreen } from './components/auth/AuthScreen';
 import { Booking } from './types';
 import { Phone, MapPin, Clock, ShieldCheck, UserCheck, PanelLeft, LogOut, LogIn } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { role, setRole, settings, bookings, paymentNotification, clearPaymentSuccess, currentUser, logout, openAuthModal } = useApp();
+  const {
+    role,
+    setRole,
+    settings,
+    bookings,
+    paymentNotification,
+    clearPaymentSuccess,
+    currentUser,
+    logout,
+    openAuthModal,
+    isAuthModalOpen
+  } = useApp();
   const [currentTab, setCurrentTab] = useState<string>('booking');
   const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
 
@@ -61,6 +72,22 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // User Requirement: "sửa giao diện đăng nhập đăng kí thành 1 màn đừng dung pop up"
+  // When in auth mode (first entry, login click, or logout), display the dedicated full-screen AuthScreen
+  if (isAuthModalOpen) {
+    return (
+      <>
+        {/* Global Payment Success Toast if needed */}
+        <PaymentSuccessToast
+          notification={paymentNotification}
+          onClose={clearPaymentSuccess}
+          onViewInvoice={handleViewInvoice}
+        />
+        <AuthScreen />
+      </>
+    );
+  }
+
   return (
     <>
       {/* Global Payment Success Toast (shown on all deposit & checkout payments) */}
@@ -79,9 +106,6 @@ const AppContent: React.FC = () => {
           onClose={() => setSelectedInvoiceBooking(null)}
         />
       )}
-
-      {/* Global Phone + OTP Authentication Modal (Auto-prompts on entry if not logged in) */}
-      <AuthModal />
 
       {/* MANAGER INTERFACE: DEDICATED COLLAPSIBLE SIDEBAR LAYOUT (GEMINI STYLE) */}
       {role === 'manager' ? (
@@ -132,11 +156,7 @@ const AppContent: React.FC = () => {
                     <span className="font-bold text-slate-900 hidden sm:inline">{currentUser.name}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm('Bạn có chắc chắn muốn đăng xuất quyền quản lý?')) {
-                          logout();
-                        }
-                      }}
+                      onClick={() => logout()}
                       className="text-slate-400 hover:text-rose-600 p-0.5 ml-1 transition-colors cursor-pointer"
                       title="Đăng xuất"
                     >

@@ -186,11 +186,7 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                if (confirm('Bạn có chắc chắn muốn đăng xuất quyền quản lý?')) {
-                  logout();
-                }
-              }}
+              onClick={() => logout()}
               className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
               title="Đăng xuất khỏi hệ thống"
             >
@@ -216,11 +212,7 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
 
         {/* Reset demo data */}
         <button
-          onClick={() => {
-            if (confirm('Khôi phục lại dữ liệu mẫu 14 sân ban đầu?')) {
-              resetAllData();
-            }
-          }}
+          onClick={() => resetAllData()}
           title="Đặt lại dữ liệu mẫu 14 sân"
           className={`w-full flex items-center justify-center text-slate-500 hover:text-slate-300 text-[11px] transition-colors cursor-pointer ${
             isExpanded ? 'gap-1.5 py-1.5' : 'p-2'

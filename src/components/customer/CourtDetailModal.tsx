@@ -16,7 +16,7 @@ export const CourtDetailModal: React.FC<CourtDetailModalProps> = ({
   onClose,
   onBookSlot
 }) => {
-  const { selectedDate, bookings } = useApp();
+  const { selectedDate, bookings, currentUser, openAuthModal } = useApp();
   const sportMeta = getSportDetails(court.sport);
 
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>('18:00');
@@ -50,6 +50,12 @@ export const CourtDetailModal: React.FC<CourtDetailModalProps> = ({
   const handleStartBooking = () => {
     if (court.status === 'maintenance') {
       alert('Sân này hiện đang bảo trì, vui lòng chọn sân khác!');
+      return;
+    }
+    // User Requirement: "Khách hàng muốn đặt sân trực tuyến buộc phải đăng nhập"
+    if (!currentUser) {
+      onClose();
+      openAuthModal('Vui lòng đăng nhập hoặc đăng ký tài khoản để thực hiện đặt sân trực tuyến!');
       return;
     }
     const nextH = getNextHour(selectedSlotTime);

@@ -90,11 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm(`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản ${currentUser.name}?`)) {
-                      logout();
-                    }
-                  }}
+                  onClick={() => logout()}
                   className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer ml-1"
                   title="Đăng xuất"
                 >
@@ -147,11 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             </div>
 
             <button
-              onClick={() => {
-                if (confirm('Khôi phục lại dữ liệu mẫu 14 sân ban đầu?')) {
-                  resetAllData();
-                }
-              }}
+              onClick={() => resetAllData()}
               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               title="Đặt lại dữ liệu mẫu"
             >

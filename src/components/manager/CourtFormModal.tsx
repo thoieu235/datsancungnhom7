@@ -317,7 +317,7 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             <h3 className="font-bold text-slate-900 text-base">
-              {isEditing ? `Chỉnh Sửa Sân: ${court.name}` : 'Thêm Sân Mới'}
+              {isEditing ? `Cập Nhật Thông Tin Sân: ${court.name}` : 'Thêm Sân Mới'}
             </h3>
           </div>
           <button

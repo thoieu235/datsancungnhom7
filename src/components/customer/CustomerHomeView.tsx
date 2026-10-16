@@ -16,9 +16,26 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   onGoToHistory,
   onGoToPricing
 }) => {
-  const { courts, selectedSport, setSelectedSport, settings } = useApp();
+  const { courts, selectedSport, setSelectedSport, settings, currentUser, openAuthModal } = useApp();
   const [selectedSlot, setSelectedSlot] = useState<{ court: Court; startTime: string; endTime: string } | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+
+  const handleSelectSlot = (court: Court, startTime: string, endTime: string) => {
+    // User Requirement: "Khách hàng muốn đặt sân trực tuyến buộc phải đăng nhập. Khi mới vào web khách vẫn thực hiện xem được tuy nhiên nếu muốn các thao tác khác đòi hỏi thông tin khách hàng thì hệ thống sẽ yêu cầu đăng nhập"
+    if (!currentUser) {
+      openAuthModal('Vui lòng đăng nhập hoặc đăng ký tài khoản để thực hiện đặt sân trực tuyến!');
+      return;
+    }
+    setSelectedSlot({ court, startTime, endTime });
+  };
+
+  const handleGoToHistory = () => {
+    if (!currentUser) {
+      openAuthModal('Vui lòng đăng nhập để xem danh sách vé và lịch sử đặt sân của bạn!');
+      return;
+    }
+    onGoToHistory();
+  };
 
   return (
     <div className="space-y-6">
@@ -35,7 +52,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
 
         <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={onGoToHistory}
+            onClick={handleGoToHistory}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-slate-700 transition-colors cursor-pointer flex items-center gap-2"
           >
             <QrCode className="w-4 h-4 text-emerald-400" />
@@ -96,15 +113,11 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       {/* Main Content based on View Mode */}
       {viewMode === 'cards' ? (
         <VisualCourtCardsView
-          onSelectSlot={(court, startTime, endTime) => {
-            setSelectedSlot({ court, startTime, endTime });
-          }}
+          onSelectSlot={handleSelectSlot}
         />
       ) : (
         <TimeGridSchedule
-          onSelectSlot={(court, startTime, endTime) => {
-            setSelectedSlot({ court, startTime, endTime });
-          }}
+          onSelectSlot={handleSelectSlot}
           onViewBookingDetails={(booking) => {
             alert(`Khung giờ này đã được đặt. Vui lòng chọn ô màu xanh còn trống hoặc gọi hotline ${settings.hotline}.`);
           }}
