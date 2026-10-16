@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Phone,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  LogOut
 } from 'lucide-react';
 
 interface ManagerSidebarProps {
@@ -26,7 +27,7 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
   isExpanded,
   onToggleExpand
 }) => {
-  const { setRole, settings, resetAllData } = useApp();
+  const { setRole, settings, resetAllData, currentUser, logout } = useApp();
 
   const navItems = [
     {
@@ -161,6 +162,42 @@ export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({
             <strong className="font-mono text-emerald-300 block">{settings.hotline}</strong>
           </div>
         )}
+
+        {/* Admin profile and logout */}
+        {currentUser ? (
+          <div className={`p-2 bg-slate-800/80 rounded-xl border border-slate-700/80 flex items-center justify-between text-xs ${
+            !isExpanded ? 'flex-col gap-1.5 p-1.5' : ''
+          }`}>
+            <div className={`flex items-center gap-2 overflow-hidden ${!isExpanded ? 'justify-center' : ''}`}>
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                👑
+              </div>
+              {isExpanded && (
+                <div className="truncate">
+                  <span className="font-bold text-white block text-[11px] truncate leading-tight">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-mono block truncate">
+                    {currentUser.phone}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Bạn có chắc chắn muốn đăng xuất quyền quản lý?')) {
+                  logout();
+                }
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+              title="Đăng xuất khỏi hệ thống"
+            >
+              <LogOut className="w-4 h-4 text-rose-400" />
+            </button>
+          </div>
+        ) : null}
 
         {/* Switch to customer view */}
         <button

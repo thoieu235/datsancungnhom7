@@ -18,11 +18,12 @@ import { ManagerCustomers } from './components/manager/ManagerCustomers';
 import { ManagerInvoicesAndTransactions } from './components/manager/ManagerInvoicesAndTransactions';
 import { PaymentSuccessToast } from './components/common/PaymentSuccessToast';
 import { WebInvoiceModal } from './components/common/WebInvoiceModal';
+import { AuthModal } from './components/common/AuthModal';
 import { Booking } from './types';
-import { Phone, MapPin, Clock, ShieldCheck, UserCheck, PanelLeft } from 'lucide-react';
+import { Phone, MapPin, Clock, ShieldCheck, UserCheck, PanelLeft, LogOut, LogIn } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { role, setRole, settings, bookings, paymentNotification, clearPaymentSuccess } = useApp();
+  const { role, setRole, settings, bookings, paymentNotification, clearPaymentSuccess, currentUser, logout, openAuthModal } = useApp();
   const [currentTab, setCurrentTab] = useState<string>('booking');
   const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
 
@@ -79,6 +80,9 @@ const AppContent: React.FC = () => {
         />
       )}
 
+      {/* Global Phone + OTP Authentication Modal (Auto-prompts on entry if not logged in) */}
+      <AuthModal />
+
       {/* MANAGER INTERFACE: DEDICATED COLLAPSIBLE SIDEBAR LAYOUT (GEMINI STYLE) */}
       {role === 'manager' ? (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex">
@@ -122,6 +126,34 @@ const AppContent: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3">
+                {currentUser ? (
+                  <div className="flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-xl text-xs">
+                    <span className="text-xs">👑</span>
+                    <span className="font-bold text-slate-900 hidden sm:inline">{currentUser.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Bạn có chắc chắn muốn đăng xuất quyền quản lý?')) {
+                          logout();
+                        }
+                      }}
+                      className="text-slate-400 hover:text-rose-600 p-0.5 ml-1 transition-colors cursor-pointer"
+                      title="Đăng xuất"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openAuthModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Đăng nhập</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {

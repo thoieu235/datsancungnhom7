@@ -51,7 +51,7 @@ export const CourtVisualBadge: React.FC<CourtVisualBadgeProps> = ({
             {is7Side ? 'Sân 7 người' : 'Sân 5 người'}
           </span>
           <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-black/60 text-white backdrop-blur-md border border-white/20 font-mono">
-            Sân #{court.courtNumber}
+            {court.courtCode || `Sân #${court.courtNumber}`}
           </span>
         </div>
 
@@ -109,7 +109,7 @@ export const CourtVisualBadge: React.FC<CourtVisualBadgeProps> = ({
             Thảm BWF Tiêu Chuẩn
           </span>
           <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-black/60 text-white backdrop-blur-md border border-white/20 font-mono">
-            Sân #{court.courtNumber}
+            {court.courtCode || `Sân #${court.courtNumber}`}
           </span>
         </div>
 
@@ -161,7 +161,7 @@ export const CourtVisualBadge: React.FC<CourtVisualBadgeProps> = ({
           {court.name.includes('Center') ? 'Center Court VIP' : court.name.includes('Mái che') ? 'Sân Mái Che' : 'Sân Ngoài Trời'}
         </span>
         <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-black/60 text-white backdrop-blur-md border border-white/20 font-mono">
-          Sân #{court.courtNumber}
+          {court.courtCode || `Sân #${court.courtNumber}`}
         </span>
       </div>
 

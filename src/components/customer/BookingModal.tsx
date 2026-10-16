@@ -30,7 +30,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     customerPhone: defaultPhone,
     customerName: defaultName,
     customers,
-    unlockCustomer
+    unlockCustomer,
+    currentUser
   } = useApp();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Slot & Time, 2: Customer Info (manager only), 3: VietQR Payment, 4: Success
@@ -38,9 +39,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [durationHours, setDurationHours] = useState(1);
   
   // Contact info (Auto-filled from logged-in customer for customer flow)
-  const [custName, setCustName] = useState(defaultName || (role === 'customer' ? 'Khách Hàng' : ''));
-  const [custPhone, setCustPhone] = useState(defaultPhone || (role === 'customer' ? '0912345678' : ''));
-  const [custEmail, setCustEmail] = useState('');
+  const [custName, setCustName] = useState(currentUser?.name || defaultName || (role === 'customer' ? 'Khách Hàng' : ''));
+  const [custPhone, setCustPhone] = useState(currentUser?.phone || defaultPhone || (role === 'customer' ? '0912345678' : ''));
+  const [custEmail, setCustEmail] = useState(currentUser?.email || '');
   const [note, setNote] = useState('');
 
   // Deposit control (default 30%, manager can override freely!)
@@ -510,9 +511,20 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     className="w-full pl-9 pr-3 py-2 text-sm font-mono font-semibold rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                 </div>
-                <span className="text-[11px] text-slate-400 mt-1 block">
-                  Định danh khách theo SĐT, tự động tải hồ sơ nếu đã từng đặt sân.
-                </span>
+                {currentCustomerProfile ? (
+                  <span className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Đã tìm thấy hồ sơ: <strong>{currentCustomerProfile.name}</strong></span>
+                  </span>
+                ) : custPhone.trim().length >= 9 ? (
+                  <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg mt-1.5 block">
+                    ℹ️ <strong>Khách vãng lai:</strong> Đặt sân cho khách này sẽ <u>không</u> tự động thêm vào danh sách khách hàng của hệ thống.
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Định danh khách theo SĐT, tự động tải thông tin nếu khách đã có hồ sơ.
+                  </span>
+                )}
               </div>
 
               {/* Cảnh báo nếu khách này đang bị khóa */}

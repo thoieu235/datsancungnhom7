@@ -76,6 +76,7 @@ export const ManagerCourtsPricing: React.FC = () => {
   const filteredCourts = courts.filter(c => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.courtCode && c.courtCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       c.surface.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.courtTypeLabel && c.courtTypeLabel.toLowerCase().includes(searchTerm.toLowerCase())) ||
       c.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -194,7 +195,7 @@ export const ManagerCourtsPricing: React.FC = () => {
             Quản Lý Sân
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Quản lý thông tin, phân loại, giá thuê và tình trạng bảo trì của toàn bộ 14 sân
+            Quản lý thông tin, bộ môn, mã sân, giá thuê và tình trạng bảo trì của toàn bộ 14 sân
           </p>
         </div>
 
@@ -313,22 +314,31 @@ export const ManagerCourtsPricing: React.FC = () => {
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Search Box */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm theo tên sân, bề mặt..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
-            />
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+              Tìm kiếm sân:
+            </label>
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm theo tên sân, mã sân (FB-01...), bề mặt..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"
+              />
+            </div>
           </div>
 
-          {/* Sport / Court Type Filter */}
+          {/* User Request: Bộ lọc đổi tên phần phân loại thành bộ môn */}
           <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Bộ môn:</span>
+              <span className="text-[10px] font-normal text-slate-400">Lọc theo môn thể thao</span>
+            </label>
             <select
               value={sportFilter}
               onChange={(e) => {
@@ -337,15 +347,19 @@ export const ManagerCourtsPricing: React.FC = () => {
               }}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 font-medium text-slate-700"
             >
-              <option value="all">Tất cả loại sân (Bóng đá, Cầu lông, Pickleball)</option>
-              <option value="football">⚽ Sân Bóng Đá ({courts.filter(c => c.sport === 'football').length} sân)</option>
-              <option value="badminton">🏸 Sân Cầu Lông ({courts.filter(c => c.sport === 'badminton').length} sân)</option>
-              <option value="pickleball">🎾 Sân Pickleball ({courts.filter(c => c.sport === 'pickleball').length} sân)</option>
+              <option value="all">Tất cả bộ môn (Bóng đá, Cầu lông, Pickleball)</option>
+              <option value="football">⚽ Bộ môn Bóng Đá ({courts.filter(c => c.sport === 'football').length} sân)</option>
+              <option value="badminton">🏸 Bộ môn Cầu Lông ({courts.filter(c => c.sport === 'badminton').length} sân)</option>
+              <option value="pickleball">🎾 Bộ môn Pickleball ({courts.filter(c => c.sport === 'pickleball').length} sân)</option>
             </select>
           </div>
 
           {/* Status Filter */}
           <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Trạng thái:</span>
+              <span className="text-[10px] font-normal text-slate-400">Hoạt động / Bảo trì</span>
+            </label>
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -385,12 +399,12 @@ export const ManagerCourtsPricing: React.FC = () => {
             <thead className="bg-slate-100/80 text-slate-700 uppercase font-bold text-[11px] border-b border-slate-200">
               <tr>
                 <th className="p-3.5 w-32">Hình Ảnh Sân</th>
-                <th className="p-3.5">Tên Sân &amp; Phân Loại</th>
+                <th className="p-3.5">Mã Sân &amp; Tên Sân</th>
                 <th className="p-3.5">Bộ Môn</th>
                 <th className="p-3.5 text-right">Giá Giờ Thường</th>
                 <th className="p-3.5 text-right">Giá Giờ Vàng (Peak)</th>
                 <th className="p-3.5">Mặt Sân &amp; Chiếu Sáng</th>
-                <th className="p-3.5 text-center">Trạng Thái</th>
+                <th className="p-3.5 text-center">Trạng Thái &amp; Bảo Trì</th>
                 <th className="p-3.5 text-center">Thao Tác</th>
               </tr>
             </thead>
@@ -413,14 +427,19 @@ export const ManagerCourtsPricing: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Name & Type */}
+                      {/* Mã Sân & Tên Sân */}
                       <td className="p-3.5">
-                        <div className="font-bold text-slate-900 text-sm">{court.name}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
-                          {court.courtTypeLabel || court.surface} · Sân #{court.courtNumber}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md font-mono font-bold text-xs bg-slate-900 text-white shadow-2xs">
+                            {court.courtCode || `SÂN-${court.courtNumber}`}
+                          </span>
+                          <span className="font-bold text-slate-900 text-sm">{court.name}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          {court.courtTypeLabel || court.surface}
                         </div>
                         {court.description && (
-                          <div className="text-[10px] text-slate-400 line-clamp-1 max-w-[200px] mt-0.5" title={court.description}>
+                          <div className="text-[10px] text-slate-400 line-clamp-1 max-w-[220px] mt-0.5" title={court.description}>
                             {court.description}
                           </div>
                         )}
@@ -449,7 +468,7 @@ export const ManagerCourtsPricing: React.FC = () => {
                         <div className="text-slate-400 text-[10px] mt-0.5">{court.lighting}</div>
                       </td>
 
-                      {/* Status Toggle / Badge */}
+                      {/* Status Toggle / Badge with Maintenance Period */}
                       <td className="p-3.5 text-center">
                         <button
                           type="button"
@@ -461,8 +480,33 @@ export const ManagerCourtsPricing: React.FC = () => {
                           }`}
                           title="Bấm để chuyển trạng thái sân"
                         >
-                          {court.status === 'active' ? '🟢 Hoạt Động' : '🔴 Bảo Trì'}
+                          {court.status === 'active' ? '🟢 Hoạt Động' : '🔴 Đang Bảo Trì'}
                         </button>
+
+                        {/* Display Maintenance Period & Reason if present */}
+                        {court.status === 'maintenance' && (court.maintenanceStart || court.maintenanceEnd || court.maintenanceReason) && (
+                          <div className="mt-1.5 p-1.5 bg-red-50/90 rounded-lg border border-red-200 text-[10px] text-red-900 text-left max-w-[150px] mx-auto leading-tight space-y-0.5">
+                            {(court.maintenanceStart || court.maintenanceEnd) && (
+                              <>
+                                <span className="font-bold block text-red-950 text-[9px]">Khoảng thời gian:</span>
+                                <span className="font-mono block text-[9px]">{court.maintenanceStart ? court.maintenanceStart.replace('T', ' ') : '...'}</span>
+                                <span className="text-slate-400 block text-[8px] text-center leading-none">đến</span>
+                                <span className="font-mono block text-[9px]">{court.maintenanceEnd ? court.maintenanceEnd.replace('T', ' ') : '...'}</span>
+                              </>
+                            )}
+                            {court.maintenanceReason && (
+                              <span className="block text-slate-600 italic text-[9px] pt-0.5 truncate" title={court.maintenanceReason}>
+                                Lý do: {court.maintenanceReason}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {court.status === 'active' && court.maintenanceStart && (
+                          <div className="mt-1 text-[9px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 truncate max-w-[130px] mx-auto" title={`Bảo trì dự kiến từ: ${court.maintenanceStart.replace('T', ' ')}`}>
+                            ⏳ Lịch: {court.maintenanceStart.split('T')[0]}
+                          </div>
+                        )}
                       </td>
 
                       {/* Actions Column */}

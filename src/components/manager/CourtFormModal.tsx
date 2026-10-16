@@ -3,7 +3,19 @@ import { Court, SportType, Booking } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { formatVND, formatDateVN } from '../../utils/formatters';
 import { CourtVisualBadge } from '../common/CourtVisualBadge';
-import { X, Save, AlertTriangle, Check, Plus, Wrench, ShieldAlert, Sparkles } from 'lucide-react';
+import {
+  X,
+  Save,
+  AlertTriangle,
+  Check,
+  Plus,
+  Wrench,
+  ShieldAlert,
+  Sparkles,
+  Calendar,
+  Clock,
+  Trash2
+} from 'lucide-react';
 
 interface CourtFormModalProps {
   court?: Court | null; // null for Create, Court for Edit
@@ -30,11 +42,14 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [sport, setSport] = useState<SportType>('football');
-  const [courtNumber, setCourtNumber] = useState(1);
+  const [courtCode, setCourtCode] = useState('');
   const [courtTypeLabel, setCourtTypeLabel] = useState('');
   const [pricePerHour, setPricePerHour] = useState(250000);
   const [peakPricePerHour, setPeakPricePerHour] = useState(350000);
   const [status, setStatus] = useState<'active' | 'maintenance'>('active');
+  const [maintenanceStart, setMaintenanceStart] = useState('');
+  const [maintenanceEnd, setMaintenanceEnd] = useState('');
+  const [maintenanceReason, setMaintenanceReason] = useState('');
   const [surface, setSurface] = useState('');
   const [lighting, setLighting] = useState('');
   const [description, setDescription] = useState('');
@@ -44,16 +59,30 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
   // Validation state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Helper to suggest court code
+  const getSuggestedCode = (s: SportType) => {
+    const prefix = s === 'football' ? 'FB' : s === 'badminton' ? 'BD' : 'PK';
+    const sameSportCourts = courts.filter(c => c.sport === s);
+    const nextNum = sameSportCourts.length + 1;
+    return `${prefix}-${nextNum.toString().padStart(2, '0')}`;
+  };
+
   // Initialize form when opened or court changes
   useEffect(() => {
     if (court) {
       setName(court.name);
       setSport(court.sport);
-      setCourtNumber(court.courtNumber);
+      setCourtCode(
+        court.courtCode ||
+        `${court.sport === 'football' ? 'FB' : court.sport === 'badminton' ? 'BD' : 'PK'}-${court.courtNumber.toString().padStart(2, '0')}`
+      );
       setCourtTypeLabel(court.courtTypeLabel || '');
       setPricePerHour(court.pricePerHour);
       setPeakPricePerHour(court.peakPricePerHour);
       setStatus(court.status);
+      setMaintenanceStart(court.maintenanceStart || '');
+      setMaintenanceEnd(court.maintenanceEnd || '');
+      setMaintenanceReason(court.maintenanceReason || '');
       setSurface(court.surface || '');
       setLighting(court.lighting || '');
       setDescription(court.description || '');
@@ -63,11 +92,14 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
       const nextNum = courts.filter(c => c.sport === 'football').length + 1;
       setName(`Sân Bóng Đá ${nextNum}`);
       setSport('football');
-      setCourtNumber(nextNum);
+      setCourtCode(`FB-${nextNum.toString().padStart(2, '0')}`);
       setCourtTypeLabel('Sân 7 người');
       setPricePerHour(300000);
       setPeakPricePerHour(450000);
       setStatus('active');
+      setMaintenanceStart('');
+      setMaintenanceEnd('');
+      setMaintenanceReason('');
       setSurface('Cỏ nhân tạo 50mm đệm cao su');
       setLighting('8 dàn đèn LED 400W');
       setDescription('Sân cỏ nhân tạo chất lượng cao, thoáng mát, hệ thống chiếu sáng tiêu chuẩn.');
@@ -81,7 +113,9 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
     setSport(newSport);
     if (!isEditing) {
       const nextNum = courts.filter(c => c.sport === newSport).length + 1;
-      setCourtNumber(nextNum);
+      const suggestedCode = getSuggestedCode(newSport);
+      setCourtCode(suggestedCode);
+
       if (newSport === 'football') {
         setName(`Sân Bóng Đá ${nextNum}`);
         setCourtTypeLabel('Sân 7 người');
@@ -123,24 +157,73 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
     }
   };
 
+  // Quick presets for maintenance
+  const setQuickMaintenance = (type: 'today' | '2days' | '1week' | 'clear') => {
+    if (type === 'clear') {
+      setMaintenanceStart('');
+      setMaintenanceEnd('');
+      setMaintenanceReason('');
+      return;
+    }
+
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const startStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T08:00`;
+
+    let endDate = new Date(now);
+    if (type === 'today') {
+      endDate.setHours(22, 0, 0, 0);
+    } else if (type === '2days') {
+      endDate.setDate(endDate.getDate() + 2);
+      endDate.setHours(18, 0, 0, 0);
+    } else if (type === '1week') {
+      endDate.setDate(endDate.getDate() + 7);
+      endDate.setHours(18, 0, 0, 0);
+    }
+    const endStr = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+
+    setMaintenanceStart(startStr);
+    setMaintenanceEnd(endStr);
+    if (!maintenanceReason.trim()) {
+      setMaintenanceReason('Bảo dưỡng định kỳ cơ sở vật chất');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // 1. Validation: Name required
+    // 1. Validation: Court Code required & unique
+    const trimmedCode = courtCode.trim().toUpperCase();
+    if (!trimmedCode) {
+      setErrorMessage('Lỗi: Vui lòng nhập Mã Sân không được để trống!');
+      return;
+    }
+
+    const duplicateCode = courts.find(c =>
+      (!isEditing || c.id !== court?.id) &&
+      c.courtCode && c.courtCode.trim().toUpperCase() === trimmedCode
+    );
+
+    if (duplicateCode) {
+      setErrorMessage(`Lỗi: Mã sân "${trimmedCode}" đã được sử dụng cho sân "${duplicateCode.name}"! Vui lòng chọn mã sân khác.`);
+      return;
+    }
+
+    // 2. Validation: Name required
     const trimmedName = name.trim();
     if (!trimmedName) {
       setErrorMessage('Lỗi: Vui lòng nhập tên sân không được để trống!');
       return;
     }
 
-    // 2. Constraint: Check duplicate court name (case-insensitive, excluding self when editing)
-    const duplicate = courts.find(c =>
+    // Constraint: Check duplicate court name (excluding self when editing)
+    const duplicateName = courts.find(c =>
       (!isEditing || c.id !== court?.id) &&
       c.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );
 
-    if (duplicate) {
+    if (duplicateName) {
       setErrorMessage(`Lỗi: Tên sân "${trimmedName}" đã tồn tại trong hệ thống! Vui lòng đặt tên khác để tránh nhầm lẫn.`);
       return;
     }
@@ -151,15 +234,15 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
       return;
     }
 
-    if (!courtNumber || courtNumber < 1) {
-      setErrorMessage('Lỗi: Số thứ tự sân phải lớn hơn hoặc bằng 1!');
+    // 4. Maintenance window validation (if provided)
+    if (maintenanceStart && maintenanceEnd && maintenanceEnd < maintenanceStart) {
+      setErrorMessage('Lỗi: Thời điểm kết thúc bảo trì phải sau thời điểm bắt đầu bảo trì!');
       return;
     }
 
     // Check if status is transitioning to maintenance
     let affectedBookings: Booking[] = [];
     if (status === 'maintenance' && isEditing && court?.id) {
-      // Find upcoming or ongoing bookings for this court
       affectedBookings = bookings.filter(b =>
         b.courtId === court.id &&
         b.checkInStatus !== 'checked_out' &&
@@ -168,14 +251,21 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
       );
     }
 
+    // Extract court number from code if possible, or fallback to number
+    const extractedNum = parseInt(trimmedCode.replace(/\D/g, ''), 10) || 1;
+
     const courtPayload = {
       name: trimmedName,
+      courtCode: trimmedCode,
       sport,
-      courtNumber: Number(courtNumber) || 1,
+      courtNumber: extractedNum,
       courtTypeLabel: courtTypeLabel.trim() || undefined,
       pricePerHour: Number(pricePerHour) || 0,
       peakPricePerHour: Number(peakPricePerHour) || 0,
       status,
+      maintenanceStart: maintenanceStart || undefined,
+      maintenanceEnd: maintenanceEnd || undefined,
+      maintenanceReason: maintenanceReason.trim() || (status === 'maintenance' ? 'Bảo trì kỹ thuật định kỳ' : undefined),
       surface: surface.trim() || 'Tiêu chuẩn',
       lighting: lighting.trim() || 'Đèn LED tiêu chuẩn',
       description: description.trim() || 'Sân thể thao đạt chuẩn.',
@@ -204,11 +294,15 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
   const previewCourt: Court = {
     id: court?.id || 'preview',
     name: name || 'Tên sân xem trước',
+    courtCode: courtCode || 'MÃ-SÂN',
     sport,
-    courtNumber,
+    courtNumber: parseInt(courtCode.replace(/\D/g, ''), 10) || 1,
     pricePerHour,
     peakPricePerHour,
     status,
+    maintenanceStart,
+    maintenanceEnd,
+    maintenanceReason,
     description,
     amenities,
     surface: surface || 'Mặt sân',
@@ -217,7 +311,7 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -249,13 +343,18 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
 
           {/* Visual Badge Preview */}
           <div>
-            <span className="font-semibold text-slate-700 block mb-1.5">
-              Hình ảnh & Sơ đồ hiển thị của sân:
-            </span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-semibold text-slate-700">
+                Hình ảnh & Sơ đồ hiển thị của sân:
+              </span>
+              <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Mã: {courtCode || 'Chưa đặt'}
+              </span>
+            </div>
             <CourtVisualBadge court={previewCourt} height="h-36" />
           </div>
 
-          {/* Basic Info: Sport, Name, Number */}
+          {/* Basic Info: Sport, Name, Court Code (User Request: STT sân -> Mã sân) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
@@ -274,7 +373,7 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Tên Sân <span className="text-red-500">* (Không trùng lặp)</span>
+                Tên Sân <span className="text-red-500">* (Không trùng)</span>
               </label>
               <input
                 type="text"
@@ -289,16 +388,24 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
               />
             </div>
 
+            {/* User Request: STT sân -> Mã Sân */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Số Thứ Tự Sân (#)
+              <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Mã Sân <span className="text-red-500">*</span></span>
+                <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
+                  Định danh
+                </span>
               </label>
               <input
-                type="number"
-                min={1}
-                value={courtNumber}
-                onChange={(e) => setCourtNumber(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                type="text"
+                required
+                placeholder="VD: FB-01, BD-02, PK-03"
+                value={courtCode}
+                onChange={(e) => {
+                  setCourtCode(e.target.value.toUpperCase());
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 uppercase focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -337,6 +444,98 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
             </div>
           </div>
 
+          {/* User Request: THÊM KHOẢNG THỜI GIAN BẢO TRÌ (NẾU CÓ) */}
+          <div className={`p-4 rounded-xl border transition-all space-y-3 ${
+            status === 'maintenance'
+              ? 'bg-rose-50/70 border-rose-300 shadow-xs'
+              : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wrench className={`w-4 h-4 ${status === 'maintenance' ? 'text-rose-600' : 'text-slate-500'}`} />
+                <span className="font-bold text-slate-900">
+                  Khoảng Thời Gian &amp; Lý Do Bảo Trì {status !== 'maintenance' ? '(Nếu có kế hoạch)' : '(Bắt buộc khi bảo trì)'}
+                </span>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setQuickMaintenance('today')}
+                  className="px-2 py-0.5 bg-white border border-slate-200 hover:border-slate-400 rounded text-slate-700 cursor-pointer"
+                >
+                  Hôm nay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickMaintenance('2days')}
+                  className="px-2 py-0.5 bg-white border border-slate-200 hover:border-slate-400 rounded text-slate-700 cursor-pointer"
+                >
+                  2 ngày
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickMaintenance('1week')}
+                  className="px-2 py-0.5 bg-white border border-slate-200 hover:border-slate-400 rounded text-slate-700 cursor-pointer"
+                >
+                  1 tuần
+                </button>
+                {(maintenanceStart || maintenanceEnd || maintenanceReason) && (
+                  <button
+                    type="button"
+                    onClick={() => setQuickMaintenance('clear')}
+                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                    title="Xóa thông tin bảo trì"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-medium mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Thời điểm bắt đầu bảo trì:</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={maintenanceStart}
+                  onChange={(e) => setMaintenanceStart(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-medium mb-1 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Thời điểm kết thúc dự kiến:</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={maintenanceEnd}
+                  onChange={(e) => setMaintenanceEnd(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-medium mb-1">
+                Lý do / Nội dung bảo trì:
+              </label>
+              <input
+                type="text"
+                placeholder="VD: Thay thế mặt cỏ nhân tạo, sửa chữa dàn đèn LED chiếu sáng, bảo dưỡng thảm BWF..."
+                value={maintenanceReason}
+                onChange={(e) => setMaintenanceReason(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
           {/* Pricing Row */}
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
             <span className="font-bold text-slate-900 block">
@@ -358,14 +557,14 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[11px]">
-                    {formatVND(pricePerHour)}
+                    ₫/giờ
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-amber-800 font-medium mb-1">
-                  Giá Giờ Cao Điểm (Sau 17:00 &amp; Thứ 7, CN):
+                <label className="block text-slate-600 mb-1">
+                  Giá Giờ Vàng (Từ 17:00 &amp; Cuối tuần):
                 </label>
                 <div className="relative">
                   <input
@@ -375,10 +574,10 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
                     required
                     value={peakPricePerHour}
                     onChange={(e) => setPeakPricePerHour(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-amber-300 rounded-lg font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-amber-500 bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-700 font-mono text-[11px]">
-                    {formatVND(peakPricePerHour)}
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[11px]">
+                    ₫/giờ
                   </span>
                 </div>
               </div>
@@ -396,7 +595,7 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
                 placeholder="VD: Cỏ nhân tạo 50mm, Thảm PVC Enlio 4.5mm..."
                 value={surface}
                 onChange={(e) => setSurface(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
 
@@ -406,10 +605,10 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="VD: 8 dàn đèn LED Philips 400W..."
+                placeholder="VD: 8 dàn đèn LED 400W, Đèn chống chói..."
                 value={lighting}
                 onChange={(e) => setLighting(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -417,37 +616,38 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
           {/* Description */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Mô Tả Sân
+              Mô Tả Chi Tiết Về Sân
             </label>
             <textarea
               rows={2}
-              placeholder="Thông tin giới thiệu về sân..."
+              placeholder="Nhập thông tin giới thiệu, vị trí, đặc điểm nổi bật..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
 
-          {/* Amenities Checklist */}
+          {/* Amenities checklist */}
           <div>
-            <label className="block font-semibold text-slate-700 mb-1.5">
-              Tiện Ích Đi Kèm (Chọn hoặc thêm mới)
-            </label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <span className="font-semibold text-slate-700 block mb-1.5">
+              Tiện Ích &amp; Trang Thiết Bị Đi Kèm ({amenities.length} mục đã chọn):
+            </span>
+
+            <div className="flex flex-wrap gap-2 mb-2">
               {COMMON_AMENITIES_BY_SPORT[sport].map(item => {
-                const selected = amenities.includes(item);
+                const isSelected = amenities.includes(item);
                 return (
                   <button
                     key={item}
                     type="button"
                     onClick={() => toggleAmenity(item)}
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                      selected
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                     }`}
                   >
-                    {selected && <Check className="w-3 h-3" />}
+                    {isSelected && <Check className="w-3 h-3" />}
                     <span>{item}</span>
                   </button>
                 );
@@ -455,10 +655,10 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
             </div>
 
             {/* Custom amenity input */}
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Thêm tiện ích khác..."
+                placeholder="Thêm tiện ích khác (VD: Bảng tỉ số điện tử, Camera tự động...)"
                 value={customAmenityInput}
                 onChange={(e) => setCustomAmenityInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -467,33 +667,34 @@ export const CourtFormModal: React.FC<CourtFormModalProps> = ({
                     addCustomAmenity();
                   }
                 }}
-                className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
+                className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
               />
               <button
                 type="button"
                 onClick={addCustomAmenity}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs cursor-pointer"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
               >
-                + Thêm
+                <Plus className="w-3.5 h-3.5" />
+                <span>Thêm</span>
               </button>
             </div>
           </div>
 
-          {/* Footer Buttons */}
-          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+          {/* Sticky Form Actions */}
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
+              className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer transition-colors"
             >
-              Hủy
+              Hủy Bỏ
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
-              <span>{isEditing ? 'Lưu Thay Đổi Sân' : 'Khởi Tạo Sân Mới'}</span>
+              <span>{isEditing ? 'Lưu Thay Đổi Sân' : 'Hoàn Tất Thêm Sân'}</span>
             </button>
           </div>
         </form>

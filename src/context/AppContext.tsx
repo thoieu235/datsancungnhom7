@@ -1,10 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Court, Booking, CustomerProfile, FacilitySettings, SportType, PaymentMethod, BookingServiceItem, BookingInvoice, BookingAuditLog, PaymentSuccessNotification } from '../types';
-import { INITIAL_COURTS, INITIAL_SETTINGS, INITIAL_CUSTOMERS, getInitialBookings } from '../data/mockData';
+import { Court, Booking, CustomerProfile, FacilitySettings, SportType, PaymentMethod, BookingServiceItem, BookingInvoice, BookingAuditLog, PaymentSuccessNotification, AuthUser } from '../types';
+import { INITIAL_COURTS, INITIAL_SETTINGS, INITIAL_CUSTOMERS, getInitialBookings, SYSTEM_ADMIN_ACCOUNT } from '../data/mockData';
 
 interface AppContextType {
   role: 'customer' | 'manager';
   setRole: (role: 'customer' | 'manager') => void;
+  currentUser: AuthUser | null;
+  setCurrentUser: (user: AuthUser | null) => void;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  loginUser: (user: AuthUser) => void;
+  logout: () => void;
   customerPhone: string;
   setCustomerPhone: (phone: string) => void;
   customerName: string;
@@ -28,6 +35,15 @@ interface AppContextType {
   updateCourt: (id: string, updates: Partial<Court>) => void;
   addCourt: (court: Omit<Court, 'id'>) => Court;
   deleteCourt: (id: string) => void;
+  addCustomer: (customerData: {
+    name: string;
+    phone: string;
+    email?: string;
+    notes?: string;
+    isVip?: boolean;
+    isLocked?: boolean;
+    lockedReason?: string;
+  }) => CustomerProfile;
   updateCustomer: (phoneOrId: string, updates: Partial<CustomerProfile>) => void;
   lockCustomer: (phoneOrId: string, reason?: string) => void;
   unlockCustomer: (phoneOrId: string) => void;
@@ -46,6 +62,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
   ROLE: 'sportarena_role_v1',
+  AUTH_USER: 'sportarena_auth_user_v1',
   COURTS: 'sportarena_courts_v1',
   BOOKINGS: 'sportarena_bookings_v2', // bumped to reload initial bookings with deposit_pending and checked_in demo data
   CUSTOMERS: 'sportarena_customers_v2',
@@ -54,8 +71,33 @@ const STORAGE_KEYS = {
   CUSTOMER_NAME: 'sportarena_cust_name_v1',
 };
 
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+    }
+    return null;
+  });
+
+  // User requirement: "Khi vào website hệ thống sẽ hiển thị yêu cầu đăng nhập bằng sđt mà mã sẽ được gửi về"
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    return !saved;
+  });
+
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+
   const [role, setRoleState] = useState<'customer' | 'manager'>(() => {
+    const savedUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u.role === 'manager' || u.isAdmin) return 'manager';
+      } catch (e) {}
+    }
     const saved = localStorage.getItem(STORAGE_KEYS.ROLE);
     return saved === 'manager' ? 'manager' : 'customer';
   });
@@ -67,6 +109,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [customerName, setCustomerNameState] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEYS.CUSTOMER_NAME) || 'Đặng Tuấn Anh';
   });
+
+  const loginUser = (user: AuthUser) => {
+    setCurrentUser(user);
+    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+    if (user.role === 'manager' || user.isAdmin) {
+      setRoleState('manager');
+      localStorage.setItem(STORAGE_KEYS.ROLE, 'manager');
+    } else {
+      setRoleState('customer');
+      localStorage.setItem(STORAGE_KEYS.ROLE, 'customer');
+      setCustomerPhone(user.phone);
+      setCustomerName(user.name);
+    }
+    setIsAuthModalOpen(false);
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setRoleState('customer');
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    localStorage.setItem(STORAGE_KEYS.ROLE, 'customer');
+    setIsAuthModalOpen(true);
+  };
+
 
   const [selectedSport, setSelectedSport] = useState<SportType>('football');
   
@@ -244,9 +310,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setBookings(prev => [newBooking, ...prev]);
 
-    // Upsert customer profile
+    // Upsert customer profile: If customer exists, update stats; if not, only auto-create if booked by customer
     setCustomers(prev => {
-      const existingIndex = prev.findIndex(c => c.phone === bookingData.customerPhone);
+      const existingIndex = prev.findIndex(c => c.phone.trim() === bookingData.customerPhone.trim());
       if (existingIndex >= 0) {
         const existing = prev[existingIndex];
         const updatedList = [...prev];
@@ -260,6 +326,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         return updatedList;
       } else {
+        // User Request: Không cho phép tự động thêm khách hàng mới khi thực hiện đặt sân của chủ sân
+        if (bookingData.createdByRole === 'manager') {
+          return prev;
+        }
+
         const newCustomer: CustomerProfile = {
           id: `cust-${Date.now()}`,
           name: bookingData.customerName,
@@ -704,6 +775,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourts(prev => prev.filter(c => c.id !== id));
   };
 
+  const addCustomer = (customerData: {
+    name: string;
+    phone: string;
+    email?: string;
+    notes?: string;
+    isVip?: boolean;
+    isLocked?: boolean;
+    lockedReason?: string;
+  }): CustomerProfile => {
+    const now = new Date().toISOString();
+    const newCust: CustomerProfile = {
+      id: `cust-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: customerData.name.trim(),
+      phone: customerData.phone.trim(),
+      email: customerData.email?.trim() || undefined,
+      notes: customerData.notes?.trim() || undefined,
+      isVip: customerData.isVip || false,
+      isLocked: customerData.isLocked || false,
+      lockedReason: customerData.isLocked ? (customerData.lockedReason?.trim() || 'Chủ sân tạm khóa') : undefined,
+      lockedAt: customerData.isLocked ? now : undefined,
+      totalBookings: 0,
+      totalSpent: 0,
+      createdAt: now.split('T')[0]
+    };
+    setCustomers(prev => [newCust, ...prev]);
+    return newCust;
+  };
+
   const updateCustomer = (phoneOrId: string, updates: Partial<CustomerProfile>) => {
     setCustomers(prev => prev.map(c => (c.id === phoneOrId || c.phone === phoneOrId) ? { ...c, ...updates } : c));
   };
@@ -758,6 +857,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         role,
         setRole,
+        currentUser,
+        setCurrentUser,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
+        loginUser,
+        logout,
         customerPhone,
         setCustomerPhone,
         customerName,
@@ -781,6 +887,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCourt,
         addCourt,
         deleteCourt,
+        addCustomer,
         updateCustomer,
         lockCustomer,
         unlockCustomer,

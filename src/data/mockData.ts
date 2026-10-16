@@ -4,6 +4,7 @@ export const INITIAL_COURTS: Court[] = [
   // 6 Sân bóng đá
   {
     id: 'court-fb-1',
+    courtCode: 'FB-01',
     name: 'Sân Bóng Đá 1 (Cỏ nhân tạo 7 người)',
     sport: 'football',
     courtNumber: 1,
@@ -17,6 +18,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-fb-2',
+    courtCode: 'FB-02',
     name: 'Sân Bóng Đá 2 (Cỏ nhân tạo 7 người)',
     sport: 'football',
     courtNumber: 2,
@@ -30,6 +32,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-fb-3',
+    courtCode: 'FB-03',
     name: 'Sân Bóng Đá 3 (Sân 5 người)',
     sport: 'football',
     courtNumber: 3,
@@ -43,6 +46,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-fb-4',
+    courtCode: 'FB-04',
     name: 'Sân Bóng Đá 4 (Sân 5 người)',
     sport: 'football',
     courtNumber: 4,
@@ -56,6 +60,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-fb-5',
+    courtCode: 'FB-05',
     name: 'Sân Bóng Đá 5 (Sân 5 người)',
     sport: 'football',
     courtNumber: 5,
@@ -69,12 +74,16 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-fb-6',
+    courtCode: 'FB-06',
     name: 'Sân Bóng Đá 6 (Sân 5 người)',
     sport: 'football',
     courtNumber: 6,
     pricePerHour: 220000,
     peakPricePerHour: 320000,
     status: 'maintenance',
+    maintenanceStart: '2026-10-15T08:00',
+    maintenanceEnd: '2026-10-18T18:00',
+    maintenanceReason: 'Bảo dưỡng định kỳ thảm cỏ nhân tạo và nâng cấp dàn đèn LED',
     description: 'Đang bảo dưỡng bề mặt cỏ và thay thế hệ thống lưới đèn định kỳ',
     amenities: ['Đang bảo trì thảm cỏ', 'Hệ thống đèn LED mới'],
     surface: 'Đang bảo dưỡng',
@@ -84,6 +93,7 @@ export const INITIAL_COURTS: Court[] = [
   // 4 Sân cầu lông
   {
     id: 'court-bm-1',
+    courtCode: 'BD-01',
     name: 'Sân Cầu Lông 1 (Thảm BWF Pro)',
     sport: 'badminton',
     courtNumber: 1,
@@ -97,6 +107,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-bm-2',
+    courtCode: 'BD-02',
     name: 'Sân Cầu Lông 2 (Thảm BWF Pro)',
     sport: 'badminton',
     courtNumber: 2,
@@ -110,6 +121,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-bm-3',
+    courtCode: 'BD-03',
     name: 'Sân Cầu Lông 3 (Thảm BWF Tiêu chuẩn)',
     sport: 'badminton',
     courtNumber: 3,
@@ -123,6 +135,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-bm-4',
+    courtCode: 'BD-04',
     name: 'Sân Cầu Lông 4 (Thảm BWF Tiêu chuẩn)',
     sport: 'badminton',
     courtNumber: 4,
@@ -138,6 +151,7 @@ export const INITIAL_COURTS: Court[] = [
   // 4 Sân Pickleball
   {
     id: 'court-pk-1',
+    courtCode: 'PK-01',
     name: 'Sân Pickleball 1 (Center Court VIP)',
     sport: 'pickleball',
     courtNumber: 1,
@@ -151,6 +165,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-pk-2',
+    courtCode: 'PK-02',
     name: 'Sân Pickleball 2 (Mái che mát)',
     sport: 'pickleball',
     courtNumber: 2,
@@ -164,6 +179,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-pk-3',
+    courtCode: 'PK-03',
     name: 'Sân Pickleball 3 (Mái che mát)',
     sport: 'pickleball',
     courtNumber: 3,
@@ -177,6 +193,7 @@ export const INITIAL_COURTS: Court[] = [
   },
   {
     id: 'court-pk-4',
+    courtCode: 'PK-04',
     name: 'Sân Pickleball 4 (Sân ngoài trời thoáng đãng)',
     sport: 'pickleball',
     courtNumber: 4,
@@ -700,3 +717,13 @@ export const getInitialBookings = (): Booking[] => {
     }
   ];
 };
+
+export const SYSTEM_ADMIN_ACCOUNT = {
+  id: 'admin-system-1',
+  phone: '0988888888',
+  name: 'Chủ Sân SportArena (Admin)',
+  email: 'admin@sportarena.vn',
+  role: 'manager' as const,
+  isAdmin: true
+};
+

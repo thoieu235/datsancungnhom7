@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, UserCheck, RefreshCw } from 'lucide-react';
+import { ShieldCheck, UserCheck, RefreshCw, LogIn, LogOut, User } from 'lucide-react';
 
 interface NavbarProps {
   currentTab: string;
@@ -8,7 +8,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => {
-  const { role, setRole, resetAllData } = useApp();
+  const { role, setRole, resetAllData, currentUser, openAuthModal, logout } = useApp();
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
@@ -72,36 +72,77 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
             </button>
           </nav>
 
-          {/* Zone 3: Role Switcher & Reset */}
+          {/* Zone 3: Auth & Role Switcher & Reset */}
           <div className="flex items-center gap-2.5 shrink-0">
+            {/* User Account / Auth Status */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 py-1 px-2.5 rounded-xl text-xs">
+                <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <div className="hidden sm:block text-left max-w-[120px] truncate">
+                  <span className="font-bold text-slate-900 block truncate leading-tight">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono block truncate">
+                    {currentUser.phone}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản ${currentUser.name}?`)) {
+                      logout();
+                    }
+                  }}
+                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer ml-1"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openAuthModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Đăng nhập / Đăng ký</span>
+              </button>
+            )}
+
+            {/* Role Switcher */}
             <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button
                 onClick={() => {
                   setRole('customer');
                   setCurrentTab('booking');
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                   role === 'customer'
                     ? 'bg-white text-emerald-800 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Giao diện khách hàng"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>Khách hàng</span>
+                <span className="hidden sm:inline">Khách</span>
               </button>
               <button
                 onClick={() => {
                   setRole('manager');
                   setCurrentTab('manager_dashboard');
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                   role === 'manager'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Giao diện quản lý sân"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Chủ sân</span>
+                <span className="hidden sm:inline">Chủ sân</span>
               </button>
             </div>
 

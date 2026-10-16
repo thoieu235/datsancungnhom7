@@ -232,34 +232,49 @@ export const ManagerDashboard: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[1050px]">
-            {/* Hours Header */}
-            <div className="grid grid-cols-[190px_repeat(16,1fr)] border-b border-slate-200 bg-slate-100/80 text-xs font-semibold text-slate-700 sticky top-0 z-10">
-              <div className="p-3 border-r border-slate-200 text-slate-900">Tên Sân / Giờ</div>
+          <table className="w-full border-separate border-spacing-0 table-fixed text-xs min-w-[1390px]">
+            {/* Column definitions for strict mathematical alignment across all rows */}
+            <colgroup>
+              <col className="w-[190px] min-w-[190px] max-w-[190px]" style={{ width: '190px' }} />
               {TIME_SLOTS.slice(0, 16).map(slot => (
-                <div key={slot} className="p-2.5 text-center border-r border-slate-200 font-mono text-[11px]">
-                  {slot}
-                </div>
+                <col key={slot} className="w-[75px] min-w-[75px] max-w-[75px]" style={{ width: '75px' }} />
               ))}
-            </div>
+            </colgroup>
+
+            {/* Hours Header (Row 1) */}
+            <thead>
+              <tr className="bg-slate-100 text-xs font-semibold text-slate-700 sticky top-0 z-20">
+                <th className="w-[190px] min-w-[190px] max-w-[190px] h-12 p-3 text-left border-b border-r border-slate-200 bg-slate-100 sticky left-0 z-30 shadow-[1px_0_0_0_#cbd5e1] box-border">
+                  <span className="font-bold text-xs text-slate-900 block truncate">Tên Sân / Giờ</span>
+                </th>
+                {TIME_SLOTS.slice(0, 16).map(slot => (
+                  <th
+                    key={slot}
+                    className="w-[75px] min-w-[75px] max-w-[75px] h-12 p-1.5 text-center border-b border-r border-slate-200 font-mono text-[11px] font-bold text-slate-700 bg-slate-100 box-border"
+                  >
+                    {slot}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
             {/* Courts Rows */}
-            <div className="divide-y divide-slate-100">
+            <tbody>
               {filteredCourts.map(court => (
-                <div
+                <tr
                   key={court.id}
-                  className="grid grid-cols-[190px_repeat(16,1fr)] hover:bg-slate-50/40 transition-colors"
+                  className="hover:bg-slate-50/60 transition-colors"
                 >
-                  {/* Court Header Cell */}
-                  <div className="p-3 border-r border-slate-200 bg-white flex flex-col justify-center">
-                    <span className="font-bold text-xs text-slate-900 truncate" title={court.name}>
+                  {/* Court Header Cell (Sticky Left) */}
+                  <td className="w-[190px] min-w-[190px] max-w-[190px] h-[58px] p-2.5 border-b border-r border-slate-200 bg-white sticky left-0 z-10 shadow-[1px_0_0_0_#cbd5e1] align-middle box-border">
+                    <span className="font-bold text-xs text-slate-900 truncate block" title={court.name}>
                       {court.name}
                     </span>
-                    <span className="text-[10px] text-slate-500 truncate mt-0.5">{court.surface}</span>
-                    <span className="text-[10px] font-mono text-emerald-700 mt-0.5">
+                    <span className="text-[10px] text-slate-500 truncate block mt-0.5">{court.surface}</span>
+                    <span className="text-[10px] font-mono text-emerald-700 block mt-0.5 font-bold">
                       {formatVND(court.pricePerHour)}/h
                     </span>
-                  </div>
+                  </td>
 
                   {/* Slot Cells */}
                   {TIME_SLOTS.slice(0, 16).map(slotTime => {
@@ -268,58 +283,76 @@ export const ManagerDashboard: React.FC = () => {
 
                     if (type === 'maintenance') {
                       return (
-                        <div key={slotTime} className="p-1 border-r border-slate-100 bg-slate-100 flex items-center justify-center">
-                          <Wrench className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
+                        <td
+                          key={slotTime}
+                          className="w-[75px] min-w-[75px] max-w-[75px] h-[58px] p-1 border-b border-r border-slate-200 bg-slate-100/80 text-center align-middle box-border"
+                        >
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                            <Wrench className="w-3.5 h-3.5" />
+                            <span className="text-[9px] uppercase font-semibold mt-0.5">Bảo trì</span>
+                          </div>
+                        </td>
                       );
                     }
 
                     if (type === 'in_use' && booking) {
                       return (
-                        <div
+                        <td
                           key={slotTime}
                           onClick={() => setSelectedBookingSummary(booking)}
-                          className="p-1 border-r border-slate-100 bg-amber-100/90 hover:bg-amber-200 transition-colors cursor-pointer group flex flex-col justify-center text-center"
+                          className="w-[75px] min-w-[75px] max-w-[75px] h-[58px] p-1 border-b border-r border-slate-200 bg-amber-100/90 hover:bg-amber-200 transition-colors cursor-pointer text-center align-middle box-border"
                           title={`Bấm để quản lý đơn: ${booking.customerName} (${booking.startTime}-${booking.endTime})`}
                         >
-                          <span className="text-[10px] font-bold text-amber-950 truncate">{booking.customerName}</span>
-                          <span className="text-[9px] text-amber-800 font-mono">Đang chơi</span>
-                        </div>
+                          <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
+                            <span className="text-[10px] font-bold text-amber-950 truncate block w-full text-center">
+                              {booking.customerName}
+                            </span>
+                            <span className="text-[9px] text-amber-800 font-mono block mt-0.5 font-semibold">
+                              Đang chơi
+                            </span>
+                          </div>
+                        </td>
                       );
                     }
 
                     if (type === 'booked' && booking) {
                       return (
-                        <div
+                        <td
                           key={slotTime}
                           onClick={() => setSelectedBookingSummary(booking)}
-                          className="p-1 border-r border-slate-100 bg-blue-100/80 hover:bg-blue-200 transition-colors cursor-pointer group flex flex-col justify-center text-center"
+                          className="w-[75px] min-w-[75px] max-w-[75px] h-[58px] p-1 border-b border-r border-slate-200 bg-blue-100/80 hover:bg-blue-200 transition-colors cursor-pointer text-center align-middle box-border"
                           title={`Bấm để Check-in hoặc Đổi sân: ${booking.customerName} (${booking.startTime}-${booking.endTime})`}
                         >
-                          <span className="text-[10px] font-bold text-blue-950 truncate">{booking.customerName}</span>
-                          <span className="text-[9px] text-blue-800 font-mono">Đã cọc 30%</span>
-                        </div>
+                          <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
+                            <span className="text-[10px] font-bold text-blue-950 truncate block w-full text-center">
+                              {booking.customerName}
+                            </span>
+                            <span className="text-[9px] text-blue-800 font-mono block mt-0.5 font-semibold">
+                              Đã cọc 30%
+                            </span>
+                          </div>
+                        </td>
                       );
                     }
 
                     // Available cell -> Manager can click to book on behalf of customer!
                     return (
-                      <div
+                      <td
                         key={slotTime}
                         onClick={() => setQuickBookingSlot({ court, startTime: slotTime, endTime: nextHour })}
-                        className="p-1 border-r border-slate-100 hover:bg-emerald-50 transition-colors cursor-pointer group flex items-center justify-center"
+                        className="w-[75px] min-w-[75px] max-w-[75px] h-[58px] p-1 border-b border-r border-slate-200 hover:bg-emerald-50 transition-colors cursor-pointer align-middle box-border"
                         title="Bấm để đặt sân hộ khách (có quyền sửa cọc thủ công)"
                       >
-                        <button className="w-full h-10 rounded border border-dashed border-emerald-200 hover:border-emerald-500 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center text-[10px] font-semibold text-emerald-700 cursor-pointer">
+                        <button className="w-full h-full rounded border border-dashed border-emerald-300 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center text-[10px] font-semibold text-emerald-700 cursor-pointer">
                           + Đặt
                         </button>
-                      </div>
+                      </td>
                     );
                   })}
-                </div>
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
 

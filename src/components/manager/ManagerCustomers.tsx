@@ -5,6 +5,7 @@ import { formatVND, formatDateVN, getSportDetails } from '../../utils/formatters
 import { ChangeCourtModal } from './ChangeCourtModal';
 import { CheckInModal } from './CheckInModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
+import { AddCustomerModal } from './AddCustomerModal';
 import {
   Search,
   Phone,
@@ -13,6 +14,7 @@ import {
   X,
   Eye,
   User,
+  UserPlus,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
@@ -57,6 +59,7 @@ export const ManagerCustomers: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Selected modals
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [selectedDetailCustomer, setSelectedDetailCustomer] = useState<CustomerProfile | null>(null);
   const [selectedHistoryCustomer, setSelectedHistoryCustomer] = useState<CustomerProfile | null>(null);
 
@@ -247,6 +250,15 @@ export const ManagerCustomers: React.FC = () => {
             <span className="font-medium">Đang bị khóa:</span>
             <strong className="font-mono font-bold">{lockedCount}</strong>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAddCustomerModal(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Thêm Khách Hàng</span>
+          </button>
         </div>
       </div>
 
@@ -1088,6 +1100,23 @@ export const ManagerCustomers: React.FC = () => {
           booking={selectedBookingForCheckIn}
           onClose={() => setSelectedBookingForCheckIn(null)}
           onSuccess={() => setSelectedBookingForCheckIn(null)}
+        />
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddCustomerModal && (
+        <AddCustomerModal
+          isOpen={true}
+          onClose={() => setShowAddCustomerModal(false)}
+          onSuccess={(newCust) => {
+            setShowAddCustomerModal(false);
+            setToastFeedback({
+              message: `Đã thêm khách hàng mới "${newCust.name}" (${newCust.phone}) vào hệ thống thành công!`,
+              type: 'success'
+            });
+            setTimeout(() => setToastFeedback(null), 5000);
+            setSelectedDetailCustomer(newCust);
+          }}
         />
       )}
     </div>

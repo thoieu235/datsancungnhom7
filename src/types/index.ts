@@ -3,11 +3,15 @@ export type SportType = 'football' | 'badminton' | 'pickleball';
 export interface Court {
   id: string;
   name: string;
+  courtCode?: string; // Mã sân (VD: FB-01, BD-02, PK-03)
   sport: SportType;
   courtNumber: number;
   pricePerHour: number;
   peakPricePerHour: number;
   status: 'active' | 'maintenance';
+  maintenanceStart?: string; // Thời gian bắt đầu bảo trì (YYYY-MM-DDTHH:mm)
+  maintenanceEnd?: string;   // Thời gian kết thúc bảo trì (YYYY-MM-DDTHH:mm)
+  maintenanceReason?: string; // Lý do bảo trì
   description: string;
   amenities: string[];
   surface: string;
@@ -141,3 +145,15 @@ export interface PaymentSuccessNotification {
   type: 'deposit' | 'settlement' | 'full';
   timestamp: string;
 }
+
+export interface AuthUser {
+  id: string;
+  phone: string;
+  name: string;
+  email?: string;
+  role: 'customer' | 'manager';
+  isAdmin?: boolean;
+  isLocked?: boolean;
+  lockedReason?: string;
+}
+

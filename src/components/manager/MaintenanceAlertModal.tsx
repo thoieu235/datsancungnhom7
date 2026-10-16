@@ -26,12 +26,23 @@ export const MaintenanceAlertModal: React.FC<MaintenanceAlertModalProps> = ({
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-red-950 text-sm">
-                Cảnh Báo: Sân Đang Chuyển Sang Bảo Trì
-              </h3>
+              <div className="flex items-center gap-2">
+                <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[10px] bg-red-800 text-white">
+                  {court.courtCode || `SÂN-${court.courtNumber}`}
+                </span>
+                <h3 className="font-bold text-red-950 text-sm">
+                  Cảnh Báo: Sân Đang Chuyển Sang Bảo Trì
+                </h3>
+              </div>
               <p className="text-[11px] text-red-700 mt-0.5">
                 {court.name} hiện có <strong>{affectedBookings.length} ca đặt</strong> cần xử lý đổi sân cho khách
               </p>
+              {(court.maintenanceStart || court.maintenanceEnd || court.maintenanceReason) && (
+                <div className="mt-1 text-[10px] text-red-900 bg-red-100/70 px-2 py-0.5 rounded border border-red-200 inline-block font-mono">
+                  {court.maintenanceStart && <span>{court.maintenanceStart.replace('T', ' ')} → {court.maintenanceEnd?.replace('T', ' ')}</span>}
+                  {court.maintenanceReason && <span className="font-sans ml-1">({court.maintenanceReason})</span>}
+                </div>
+              )}
             </div>
           </div>
 
